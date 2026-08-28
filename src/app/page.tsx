@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { DIFFICULTY_LEVELS, difficultyAccent } from "@/lib/taxonomy";
 import { OFFICERS } from "@/lib/officers";
@@ -22,22 +21,36 @@ export default function HomePage() {
   return (
     <>
       {/* ---------------------------------------------------------------- Hero */}
-      <section className="border-b border-ink/10">
-        <div className="mx-auto max-w-6xl px-6 pt-16 pb-20 sm:pt-24 sm:pb-28">
-          <Image
-            src="/images/FLARE_LOGO.png"
-            alt="FLARE — Financial Literacy Advancement for RGV Equity"
-            width={2172}
-            height={724}
-            priority
-            className="w-full max-w-2xl"
-          />
+      {/*
+        Background video. Drop the file at public/videos/hero.mp4 and it picks
+        it up with no code change. Until then the ink background shows through,
+        which is a valid state — nothing here depends on the footage existing.
+        Keep it short, quiet, and slow-moving; the scrim below assumes the copy
+        has to stay readable over whatever is playing.
+      */}
+      <section className="relative isolate overflow-hidden bg-ink text-mist">
+        <video
+          className="absolute inset-0 size-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-hidden
+          tabIndex={-1}
+        >
+          <source src="/videos/hero.mp4" type="video/mp4" />
+        </video>
 
-          <h1 className="font-display mt-14 max-w-4xl text-4xl leading-[1.08] font-medium text-balance sm:text-5xl lg:text-6xl">
+        {/* Scrim. Holds the text contrast whatever the footage is doing. */}
+        <div className="absolute inset-0 bg-ink/75" aria-hidden />
+
+        <div className="relative mx-auto max-w-6xl px-6 py-28 sm:py-36 lg:py-44">
+          <h1 className="font-display max-w-4xl text-4xl leading-[1.08] font-medium text-balance sm:text-5xl lg:text-6xl">
             The same question, explained at the level you are actually at.
           </h1>
 
-          <p className="mt-8 max-w-2xl text-lg leading-relaxed text-ink/75">
+          <p className="mt-8 max-w-2xl text-lg leading-relaxed text-mist/80">
             FLARE is a student-run video library covering financial literacy,
             taxes, and economics. Every video carries a difficulty level, from
             what a paycheck is through reading a company&rsquo;s filings — so a
@@ -48,13 +61,13 @@ export default function HomePage() {
           <div className="mt-10 flex flex-wrap items-center gap-4">
             <Link
               href="/library"
-              className="label rounded-full bg-ink px-7 py-4 text-mist transition-opacity hover:opacity-90"
+              className="label rounded-full bg-mist px-7 py-4 text-ink transition-opacity hover:opacity-90"
             >
               Browse the library
             </Link>
             <Link
               href="/contribute"
-              className="label rounded-full border border-ink/25 px-7 py-4 text-ink transition-colors hover:border-ink"
+              className="label rounded-full border border-mist/40 px-7 py-4 text-mist transition-colors hover:border-mist"
             >
               Post a video
             </Link>

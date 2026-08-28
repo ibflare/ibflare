@@ -40,11 +40,6 @@ export default function NotFound() {
             Browse the library
           </Link>
         </div>
-
-        <p className="mt-14 max-w-xl text-sm leading-relaxed text-ink/60">
-          If you followed a link from inside FLARE and it brought you here, tell
-          an officer — that is a broken link on our side, not yours.
-        </p>
       </div>
     </section>
   );

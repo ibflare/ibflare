@@ -1,10 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 
 /**
- * The wordmark is set in Bodoni Moda at --color-ink, which is sampled from
- * FLARE_LOGO.png — so the header reads as the same mark. The full lockup
- * (flame, tagline rule) is shown as the actual file in the hero, where it has
- * the room to be legible.
+ * The header uses FLARE_WORDMARK.png — the full lockup cropped to just the
+ * wordmark (generated from FLARE_LOGO.png, tagline band removed). The tagline
+ * in the full logo is ~25px tall in a 724px-tall file, so at header height it
+ * renders as illegible mush. The full lockup belongs somewhere it has room.
  */
 const NAV = [
   { href: "/library", label: "Library", mobile: true },
@@ -17,12 +18,15 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/85 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:gap-6 sm:px-6">
-        <Link
-          href="/"
-          className="font-display text-2xl leading-none font-semibold tracking-tight text-ink"
-          aria-label="FLARE — home"
-        >
-          FLARE
+        <Link href="/" aria-label="FLARE — home" className="shrink-0">
+          <Image
+            src="/images/FLARE_WORDMARK.png"
+            alt="FLARE"
+            width={1993}
+            height={517}
+            priority
+            className="h-7 w-auto sm:h-8"
+          />
         </Link>
 
         <nav className="flex items-center gap-4 sm:gap-7">
