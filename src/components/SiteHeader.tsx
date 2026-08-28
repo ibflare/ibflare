@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 /**
- * The header uses FLARE_WORDMARK.png — the full lockup cropped to just the
+ * The header uses FLARE_WORDMARK.png, the full lockup cropped to just the
  * wordmark (generated from FLARE_LOGO.png, tagline band removed). The tagline
  * in the full logo is ~25px tall in a 724px-tall file, so at header height it
  * renders as illegible mush. The full lockup belongs somewhere it has room.
@@ -18,7 +18,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/85 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:gap-6 sm:px-6">
-        <Link href="/" aria-label="FLARE — home" className="shrink-0">
+        <Link href="/" aria-label="FLARE, home" className="shrink-0">
           <Image
             src="/images/FLARE_WORDMARK.png"
             alt="FLARE"

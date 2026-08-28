@@ -5,7 +5,7 @@
  *
  * --ink is sampled directly from public/images/FLARE_LOGO.png, not taken from
  * the spec. The wordmark's actual body colour clusters tightly around #041B11
- * (top samples: #031A11, #041B11, #031A10) — darker and less blue than the
+ * (top samples: #031A11, #041B11, #031A10), darker and less blue than the
  * #0B1F17 written in the spec. The header must match the mark, so the sampled
  * value wins.
  */
@@ -49,6 +49,30 @@
 }
 
 @layer components {
+  /*
+   * Hero scrim over the background video.
+   *
+   * A flat overlay does not hold up: the footage is bright, so the body copy
+   * loses contrast against the lighter frames. Weighted to the left, where the
+   * text sits, leaving the footage legible on the right. Narrow screens get a
+   * uniform wash instead, since the copy spans the full width there and would
+   * otherwise run into the lighter end of the gradient.
+   */
+  .hero-scrim {
+    background: color-mix(in srgb, var(--color-ink) 88%, transparent);
+  }
+
+  @media (min-width: 640px) {
+    .hero-scrim {
+      background: linear-gradient(
+        to right,
+        color-mix(in srgb, var(--color-ink) 94%, transparent) 0%,
+        color-mix(in srgb, var(--color-ink) 84%, transparent) 45%,
+        color-mix(in srgb, var(--color-ink) 58%, transparent) 100%
+      );
+    }
+  }
+
   /*
    * The tracked-out label style from the logo's tagline lockup.
    * Eyebrows, buttons, and small caps. CLAUDE.md §8.

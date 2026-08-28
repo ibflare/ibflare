@@ -330,7 +330,7 @@ profile. Hiding a button is not enforcement. Likewise, the comments insert polic
 ## 7. Routes
 
 ```
-/                       Landing. Mission, what FLARE does at Lamar Academy, officer photos, CTA
+/                       Landing. Mission, what FLARE does at Lamar Academy, difficulty ladder, CTA
 /library                Browse. Search + difficulty + topic filters. Server-rendered, paginated
 /v/[id]                 Video page. Embed, byline with collaborators, comments
 /u/[username]           Public profile. Name, title, bio, their videos. No grade/city/school
@@ -344,7 +344,21 @@ profile. Hiding a button is not enforcement. Likewise, the comments insert polic
 /dashboard/admin/log    Gated on can_moderate. Audit log, newest first
 /dashboard/admin/settings  Gated on can_manage_users. The kill switches from §4
 /suspended              Shown to a suspended user: reason, date, who to contact
+/privacy                Privacy Policy. Linked from the footer. NOT YET WRITTEN
+/terms                  Terms of Service. Linked from the footer. NOT YET WRITTEN
 ```
+
+> **The footer links to `/privacy` and `/terms` as of phase 1, and neither page
+> exists.** They 404. Both must exist before launch, and neither should be
+> drafted casually: this site collects `grade`, `city`, and `school` from
+> minors, so the privacy policy has to describe that accurately and match the
+> §9 constraints. Get an adult with authority over the club to review both.
+
+**Officers are no longer listed on the landing page.** The placeholder cards
+were removed in phase 1. Note that §2 gives "listing current officers on the
+landing page" as a reason `role` exists for display; that rationale now has no
+consumer. Keep `role` regardless, since it drives the public tag on profiles and
+comments.
 
 ### `/dashboard/admin/people` — built for a non-technical teacher
 
@@ -403,9 +417,21 @@ Logo at `/public/images/FLARE_LOGO.png`. Sample the green from the file rather t
 > is transparent, and the flame's negative space is `#EDEDEB`, which is where `--mist` comes from.
 > `--paper` and `--paper-deep` are not derivable from the file and remain design choices.
 
-Voice: plain, specific, never salesy. "Filing your first return", not "Unlock your financial
-future." Sentence case except the tracked-out label style. Errors say what happened and how to fix
-it. This is a nonprofit teaching kids about money, not a fintech startup.
+Voice: **formal register.** Specific, never salesy, and never chatty. Prefer "Contributors upload
+their video to YouTube as an unlisted entry" over "You upload it to YouTube as unlisted". Third
+person and full constructions; avoid contractions, rhetorical questions, and second-person address
+in body copy. Sentence case except the tracked-out label style. Errors state what occurred and what
+the reader may do next, without implying reader error. This is a nonprofit teaching young people
+about money, not a fintech startup.
+
+**No em dashes anywhere.** Use a comma, a colon, a semicolon, or a full stop. This applies to code
+comments as well as copy, so the rule holds repo-wide and greps clean.
+
+> **Corrected after phase 1.** This section originally called for plain, conversational copy, and
+> phase 1 was first written that way. It read as too informal for the subject and was rewritten in a
+> formal register at the client's direction. The em dash prohibition was added at the same time.
+> Note that the formal register applies to site copy; the liability disclaimer in the footer is
+> formal for a different reason and is more heavily so.
 
 ---
 
@@ -453,15 +479,30 @@ they can be deleted before launch.
 
 ### Phase 1 status
 
-Done and running locally; **not yet deployed to Vercel**. Built: brand tokens and fonts, `SiteHeader`,
-`SiteFooter`, the landing page (hero, what FLARE does, the five-level ladder, officer cards, CTA
-band), and `src/lib/taxonomy.ts` (the difficulty scale and topic list, which phase 3 reads).
+Done and running locally; **not yet deployed to Vercel**. Built: brand tokens and fonts,
+`SiteHeader`, `SiteFooter`, a branded 404, the landing page (hero over background video, what FLARE
+does, the five-level ladder, CTA band), and `src/lib/taxonomy.ts` (the difficulty scale and topic
+list, which phase 3 reads).
 
-Known placeholders, to be cleared as later phases land:
+Outstanding, to be cleared as later phases land:
 
-- `src/lib/officers.ts` is filler. Delete it in phase 2 and read officers from `profiles`.
-- The header, footer, and CTA link to `/library`, `/contribute`, and `/login`, which do not exist
+- The header, footer, and CTAs link to `/library`, `/contribute`, and `/login`, which do not exist
   yet. They 404 until phases 2 and 3.
+- `/privacy` and `/terms` are linked from the footer and 404. See §7.
+- Officers are not shown anywhere. If they should return to the landing page, read them from
+  `profiles` in phase 2 rather than reinstating a placeholder file.
+
+### Media assets
+
+Masters live in `media-src/`, which is gitignored. Only encoded web versions belong in `public/`.
+
+- **GitHub rejects any file over 100MB**, so a 4K master in `public/` breaks the first push.
+- Background video is encoded to 1080p, 24fps, no audio (the element is muted, so an audio track is
+  pure waste), H.264 CRF 32, `+faststart`. The 16s hero master went from 79MB to 4.7MB this way.
+- Filenames in `public/` must be lowercase. Vercel serves from a case-sensitive filesystem, so
+  `HERO.mp4` resolves locally on Windows and 404s in production.
+- Generate a poster frame alongside any background video and set it on the element, so the first
+  paint is not a black rectangle.
 
 ---
 

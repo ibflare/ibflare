@@ -10,33 +10,37 @@ export const DIFFICULTY_LEVELS = [
   {
     level: 1,
     name: "Spark",
-    audience: "Ages 11–14",
-    assumes: "Nothing. What a paycheck is, what a bank does.",
+    audience: "Ages 11 to 14",
+    assumes:
+      "No prior knowledge. Introduces earnings, wages, and the function of a bank.",
   },
   {
     level: 2,
     name: "Ember",
-    audience: "Ages 14–16",
+    audience: "Ages 14 to 16",
     assumes:
-      "You have a job or are about to. Pay stubs, simple returns, credit.",
+      "Presumes employment or imminent employment. Covers pay statements, straightforward returns, and credit.",
   },
   {
     level: 3,
     name: "Blaze",
-    audience: "Ages 16–18",
-    assumes: "You have money to decide about. Index funds, 1099s, FAFSA.",
+    audience: "Ages 16 to 18",
+    assumes:
+      "Presumes discretionary income. Covers index funds, Form 1099, and applications for financial aid.",
   },
   {
     level: 4,
     name: "Torch",
-    audience: "18+",
-    assumes: "College level. Macro policy, filings, valuation.",
+    audience: "Ages 18 and over",
+    assumes:
+      "Undergraduate level. Covers macroeconomic policy, corporate filings, and valuation.",
   },
   {
     level: 5,
     name: "Flare",
-    audience: "College and up",
-    assumes: "Research depth. One niche question, about twenty minutes.",
+    audience: "Undergraduate and above",
+    assumes:
+      "Research depth. A single specialized question, treated at approximately twenty minutes.",
   },
 ] as const;
 

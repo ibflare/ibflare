@@ -42,3 +42,7 @@ next-env.d.ts
 
 # playwright-mcp screenshot/snapshot output
 .playwright-mcp/
+
+# video/image masters. Encoded web versions live in public/; masters stay local
+# (GitHub rejects files over 100MB outright)
+media-src/

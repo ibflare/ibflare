@@ -22,13 +22,13 @@ const jost = Jost({
 export const metadata: Metadata = {
   metadataBase: new URL("https://flare-rgv.vercel.app"),
   title: {
-    default: "FLARE — Financial Literacy Advancement for RGV Equity",
-    template: "%s — FLARE",
+    default: "FLARE: Financial Literacy Advancement for RGV Equity",
+    template: "%s | FLARE",
   },
   description:
     "A student-run video library explaining financial literacy, taxes, and economics, sorted by difficulty so you can find the version pitched at you.",
   openGraph: {
-    title: "FLARE — Financial Literacy Advancement for RGV Equity",
+    title: "FLARE: Financial Literacy Advancement for RGV Equity",
     description:
       "A student-run video library explaining financial literacy, taxes, and economics, sorted by difficulty.",
     type: "website",
