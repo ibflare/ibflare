@@ -1,69 +1,208 @@
 import Image from "next/image";
+import Link from "next/link";
+import { DIFFICULTY_LEVELS, difficultyAccent } from "@/lib/taxonomy";
+import { OFFICERS } from "@/lib/officers";
 
-export default function Home() {
+const PRINCIPLES = [
+  {
+    heading: "Students teach it",
+    body: "Every video is made by a FLARE member who had to work the thing out themselves first — a first W-2, a FAFSA form, a lease that went up in July. Not a purchased curriculum, and not a teacher reading slides.",
+  },
+  {
+    heading: "Sorted by difficulty, not by date",
+    body: "The same topic gets explained more than once, at different levels. If a video assumes something you do not have yet, there is a lower one on the same subject. Nothing is buried because it is old.",
+  },
+  {
+    heading: "Nobody is selling you anything",
+    body: "We explain how things work, not what to buy. No sponsors, no referral codes, no affiliate links, ever. When a member is unsure about something, the video says so on camera.",
+  },
+];
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <>
+      {/* ---------------------------------------------------------------- Hero */}
+      <section className="border-b border-ink/10">
+        <div className="mx-auto max-w-6xl px-6 pt-16 pb-20 sm:pt-24 sm:pb-28">
+          <Image
+            src="/images/FLARE_LOGO.png"
+            alt="FLARE — Financial Literacy Advancement for RGV Equity"
+            width={2172}
+            height={724}
+            priority
+            className="w-full max-w-2xl"
+          />
+
+          <h1 className="font-display mt-14 max-w-4xl text-4xl leading-[1.08] font-medium text-balance sm:text-5xl lg:text-6xl">
+            The same question, explained at the level you are actually at.
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+          <p className="mt-8 max-w-2xl text-lg leading-relaxed text-ink/75">
+            FLARE is a student-run video library covering financial literacy,
+            taxes, and economics. Every video carries a difficulty level, from
+            what a paycheck is through reading a company&rsquo;s filings — so a
+            seventh grader and a college junior can both find the version of an
+            answer that makes sense to them.
           </p>
+
+          <div className="mt-10 flex flex-wrap items-center gap-4">
+            <Link
+              href="/library"
+              className="label rounded-full bg-ink px-7 py-4 text-mist transition-opacity hover:opacity-90"
+            >
+              Browse the library
+            </Link>
+            <Link
+              href="/contribute"
+              className="label rounded-full border border-ink/25 px-7 py-4 text-ink transition-colors hover:border-ink"
+            >
+              Post a video
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* ------------------------------------------- What FLARE does at Lamar */}
+      <section className="border-b border-ink/10">
+        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+          <p className="label text-ink/45">FLARE at Lamar Academy</p>
+
+          <div className="mt-12 grid gap-14 lg:grid-cols-[1fr_1.15fr] lg:gap-20">
+            <div>
+              <h2 className="font-display text-3xl leading-tight font-medium text-balance sm:text-4xl">
+                A club that publishes what it learns.
+              </h2>
+              <p className="mt-7 leading-relaxed text-ink/75">
+                FLARE meets at Lamar Academy in the Rio Grande Valley. Members
+                pick something they have had to figure out — how withholding
+                works, what a credit score is actually measuring, why the rent
+                went up — and record a short video explaining it.
+              </p>
+              <p className="mt-5 leading-relaxed text-ink/75">
+                The video gets a difficulty level and a topic, and goes into the
+                library alongside the other explanations of the same thing. That
+                is the whole club: work it out, then teach it to whoever comes
+                next.
+              </p>
+            </div>
+
+            <ul className="grid gap-px overflow-hidden rounded-lg bg-ink/12">
+              {PRINCIPLES.map((principle) => (
+                <li key={principle.heading} className="bg-paper p-7 sm:p-9">
+                  <h3 className="font-display text-xl font-medium">
+                    {principle.heading}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-ink/70">
+                    {principle.body}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      {/* ----------------------------------------------- The difficulty ladder */}
+      <section className="border-b border-ink/10 bg-paper-deep">
+        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+          <p className="label text-ink/45">The five levels</p>
+          <h2 className="font-display mt-6 max-w-3xl text-3xl leading-tight font-medium text-balance sm:text-4xl">
+            Pick the level that matches what you already know, not your age.
+          </h2>
+          <p className="mt-6 max-w-2xl leading-relaxed text-ink/70">
+            The ages are a rough guide. What actually separates the levels is
+            what each one assumes you have already run into.
+          </p>
+
+          <ol className="mt-14 space-y-px overflow-hidden rounded-lg bg-ink/12">
+            {DIFFICULTY_LEVELS.map((level) => (
+              <li
+                key={level.level}
+                className="grid gap-x-8 gap-y-3 bg-paper-deep px-6 py-7 sm:grid-cols-[auto_1fr_1.4fr] sm:items-baseline sm:px-8"
+              >
+                <div className="flex items-baseline gap-4">
+                  {/*
+                    The numeral is real content, not decoration — the list has
+                    no marker, so this is the only place the level number is
+                    announced. Ember/hot colouring per CLAUDE.md §8.
+                  */}
+                  <span
+                    className="font-display text-3xl leading-none font-semibold tabular-nums"
+                    style={{ color: difficultyAccent(level.level) }}
+                  >
+                    {level.level}
+                  </span>
+                  <span className="font-display text-2xl leading-none font-medium">
+                    {level.name}
+                  </span>
+                </div>
+                <p className="label text-ink/50">{level.audience}</p>
+                <p className="text-sm leading-relaxed text-ink/75">
+                  {level.assumes}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------- Officers */}
+      <section className="border-b border-ink/10">
+        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+          <p className="label text-ink/45">Who runs it</p>
+          <h2 className="font-display mt-6 max-w-3xl text-3xl leading-tight font-medium text-balance sm:text-4xl">
+            The officers, and the sponsor who signs off on all of it.
+          </h2>
+
+          <ul className="mt-14 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+            {OFFICERS.map((officer, index) => (
+              <li key={index}>
+                <div
+                  className="flex aspect-4/3 items-center justify-center rounded-lg bg-ink/8"
+                  aria-hidden
+                >
+                  <span className="font-display text-4xl font-medium text-ink/30">
+                    {officer.monogram}
+                  </span>
+                </div>
+                <h3 className="font-display mt-5 text-xl font-medium">
+                  {officer.name}
+                </h3>
+                <p className="label mt-2 text-ink/50">{officer.title}</p>
+                <p className="mt-4 text-sm leading-relaxed text-ink/70">
+                  {officer.bio}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------ CTA band */}
+      <section className="bg-ink text-mist">
+        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+          <div className="grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-end">
+            <div>
+              <h2 className="font-display max-w-2xl text-3xl leading-tight font-medium text-balance sm:text-4xl">
+                Is there something you had to figure out the hard way?
+              </h2>
+              <p className="mt-6 max-w-xl leading-relaxed text-mist/70">
+                That is the video worth making. You upload it to YouTube as
+                unlisted, paste the link here, and pick a level. FLARE members
+                and approved outside contributors can post.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 lg:justify-end">
+              <Link
+                href="/contribute"
+                className="label rounded-full bg-mist px-7 py-4 text-ink transition-opacity hover:opacity-90"
+              >
+                How to contribute
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

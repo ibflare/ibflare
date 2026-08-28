@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Brand tokens. See CLAUDE.md §8.
+ *
+ * --ink is sampled directly from public/images/FLARE_LOGO.png, not taken from
+ * the spec. The wordmark's actual body colour clusters tightly around #041B11
+ * (top samples: #031A11, #041B11, #031A10) — darker and less blue than the
+ * #0B1F17 written in the spec. The header must match the mark, so the sampled
+ * value wins.
+ */
+@theme {
+  --color-ink: #041b11;
+  --color-paper: #e8ede9;
+  --color-paper-deep: #dbe3dd;
+  --color-mist: #ededeb; /* the flame's negative space in the logo */
+  --color-black: #0a0a0a;
+  --color-ember: #f0b429; /* difficulty 4-5 markers and focus states ONLY */
+  --color-hot: #e8622c; /* difficulty 5 ONLY */
+
+  --font-display: var(--font-bodoni), "Bodoni Moda", Georgia, "Times New Roman",
+    serif;
+  --font-sans: var(--font-jost), "Jost", ui-sans-serif, system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+  }
+
+  /* Ember is the focus colour site-wide. */
+  :focus-visible {
+    outline: 2px solid var(--color-ember);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-ink);
+    color: var(--color-mist);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /*
+   * The tracked-out label style from the logo's tagline lockup.
+   * Eyebrows, buttons, and small caps. CLAUDE.md §8.
+   */
+  .label {
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+    font-size: 0.6875rem;
+    line-height: 1;
+  }
+}
+
+/* The mark is drawn dark-on-light; we never invert it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
