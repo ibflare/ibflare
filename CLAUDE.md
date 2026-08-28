@@ -100,13 +100,17 @@ The first sponsor is created this way. There is no self-serve path to sponsor.
 
 Difficulty is an integer 1–5. The scale is fixed and public-facing:
 
+The wording below is public-facing and comes from the client copy deck. It lives in
+`src/lib/taxonomy.ts` as `DIFFICULTY_LEVELS`, which is the single source the UI reads; keep the two
+in step.
+
 | Level | Name | Audience | Assumes |
 |---|---|---|---|
-| 1 | Spark | Ages 11–14 | Nothing. What a paycheck is, what a bank does |
-| 2 | Ember | Ages 14–16 | You have a job or are about to. Pay stubs, simple returns, credit |
-| 3 | Blaze | Ages 16–18 | You have money to decide about. Index funds, 1099s, FAFSA |
-| 4 | Torch | 18+ | College level. Macro policy, filings, valuation |
-| 5 | Flare | College and up | Research depth. One niche question, ~20 minutes |
+| 1 | Spark | Ages 11–14 | Assumes nothing. What a paycheck is, what a bank does with your money |
+| 2 | Ember | Ages 14–16 | You have a job or you're about to. Pay stubs, simple tax returns, how credit works |
+| 3 | Blaze | Ages 16–18 | You have money to make decisions about. Index funds, 1099 work, FAFSA and student loans |
+| 4 | Torch | 18 and up | College level. Macroeconomic policy, company filings, valuation |
+| 5 | Flare | College and up | A single question examined in depth. Assumes coursework in economics or finance |
 
 Topics (enum): `taxes`, `banking`, `credit`, `investing`, `career`, `macro`, `micro`, `corporate`.
 
@@ -417,21 +421,27 @@ Logo at `/public/images/FLARE_LOGO.png`. Sample the green from the file rather t
 > is transparent, and the flame's negative space is `#EDEDEB`, which is where `--mist` comes from.
 > `--paper` and `--paper-deep` are not derivable from the file and remain design choices.
 
-Voice: **formal register.** Specific, never salesy, and never chatty. Prefer "Contributors upload
-their video to YouTube as an unlisted entry" over "You upload it to YouTube as unlisted". Third
-person and full constructions; avoid contractions, rhetorical questions, and second-person address
-in body copy. Sentence case except the tracked-out label style. Errors state what occurred and what
-the reader may do next, without implying reader error. This is a nonprofit teaching young people
-about money, not a fintech startup.
+Voice: **plain and direct, addressed to the reader.** Second person and contractions are correct
+("If a video assumes something you haven't learned yet, there is a simpler version of it"). What is
+banned is salesy, jokey, or padded writing, not informality itself. Every claim should be concrete:
+"Pay stubs, simple tax returns, how credit works", not "essential money skills". Sentence case
+except the tracked-out label style. Errors state what happened and what the reader can do next,
+without implying reader error. This is a nonprofit teaching young people about money, not a fintech
+startup.
 
 **No em dashes anywhere.** Use a comma, a colon, a semicolon, or a full stop. This applies to code
-comments as well as copy, so the rule holds repo-wide and greps clean.
+comments as well as copy, so the rule holds repo-wide and greps clean. En dashes in numeric ranges
+("Ages 11–14") are correct and are not affected.
 
-> **Corrected after phase 1.** This section originally called for plain, conversational copy, and
-> phase 1 was first written that way. It read as too informal for the subject and was rewritten in a
-> formal register at the client's direction. The em dash prohibition was added at the same time.
-> Note that the formal register applies to site copy; the liability disclaimer in the footer is
-> formal for a different reason and is more heavily so.
+> **This section has been wrong twice. The copy deck is the authority, not this paragraph.**
+> Phase 1 was first written conversationally per the original rule, judged too informal, and
+> rewritten in a stiff formal register with contractions and second person stripped out. The
+> client-supplied copy deck that followed restored both. The description above is derived from that
+> deck, which is the ground truth for register. Match its cadence when writing new copy, and do not
+> re-formalize on the strength of an adjective in this file.
+
+The footer liability notice is deliberately heavier than the rest of the copy. It is doing legal
+work, not teaching, and should not be loosened to match the surrounding voice.
 
 ---
 

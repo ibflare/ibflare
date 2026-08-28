@@ -46,9 +46,8 @@ export function SiteFooter() {
               Financial Literacy Advancement for RGV Equity
             </p>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-mist/70">
-              A student-run video library at Lamar Academy, publishing
-              instruction on financial literacy, taxation, and economics across
-              five levels of difficulty.
+              A student organization at Lamar Academy building a free financial
+              education library for the Rio Grande Valley.
             </p>
           </div>
 
@@ -89,22 +88,16 @@ export function SiteFooter() {
             </nav>
           </div>
 
-          {/*
-            Formal register here is deliberate and departs from the plain-voice
-            rule in CLAUDE.md §8. That rule governs teaching copy; a liability
-            and independence disclaimer is doing different work.
-          */}
+          {/* Liability and independence notice. Client-supplied copy. */}
           <p className="mt-5 max-w-4xl text-xs leading-relaxed text-mist/40">
-            FLARE is a student organization operating at Lamar Academy. All
-            material published on this site is produced by student contributors
-            for educational purposes only and does not constitute financial,
-            investment, tax, accounting, or legal advice, nor a recommendation
-            to buy, sell, or hold any security or financial product. FLARE
-            receives no sponsorship, affiliate compensation, or referral
-            consideration from any third party, and no contributor is
-            compensated for the content they publish. Viewers should consult a
-            qualified professional before acting on any information presented
-            here.
+            FLARE is a student organization at Lamar Academy. Everything
+            published here is made by student contributors for educational
+            purposes. It is not financial, investment, tax, accounting, or legal
+            advice, and nothing on this site is a recommendation to buy, sell,
+            or hold any security or financial product. FLARE accepts no
+            sponsorship, affiliate compensation, or referral payments, and no
+            contributor is paid for what they publish. Talk to a qualified
+            professional before acting on anything you see here.
           </p>
         </div>
       </div>

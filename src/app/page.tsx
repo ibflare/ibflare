@@ -3,16 +3,16 @@ import { DIFFICULTY_LEVELS, difficultyAccent } from "@/lib/taxonomy";
 
 const PRINCIPLES = [
   {
-    heading: "Produced by students",
-    body: "Every video is produced by a FLARE member who worked through the subject themselves before explaining it. The library is not a purchased curriculum, and it is not instructional material delivered from a script.",
+    heading: "Made by students",
+    body: "Every video comes from a FLARE member who worked through the subject themselves. This is not a purchased curriculum, and it is not a scripted lesson.",
   },
   {
-    heading: "Organized by difficulty",
-    body: "A subject is explained more than once, at different levels. Where a video presumes knowledge a viewer does not yet hold, a lower-level treatment of the same subject is available. Material is not deprioritized on the basis of age.",
+    heading: "Sorted by difficulty",
+    body: "The same subject is explained more than once, at different levels. If a video assumes something you haven't learned yet, there is a simpler version of it.",
   },
   {
-    heading: "No commercial interest",
-    body: "The library explains how financial instruments and obligations function; it does not recommend products. FLARE accepts no sponsorship, affiliate arrangement, or referral compensation. Where a contributor is uncertain, the video states as much explicitly.",
+    heading: "Nothing to sell",
+    body: "We explain how financial products and obligations work. We do not recommend them. FLARE accepts no sponsorship, affiliate arrangements, or referral payments, and no contributor is compensated for what they publish. Where a contributor is uncertain, the video says so.",
   },
 ];
 
@@ -55,12 +55,11 @@ export default function HomePage() {
           </h1>
 
           <p className="mt-8 max-w-2xl text-lg leading-relaxed text-mist/80">
-            FLARE maintains a video library on financial literacy, taxation, and
-            economics, produced by student contributors. Each video is assigned
-            one of five difficulty levels, ranging from introductory material on
-            income and banking through the analysis of corporate filings, so
-            that viewers may select the treatment appropriate to their existing
-            knowledge.
+            FLARE is a student-run video library covering personal finance,
+            taxes, and economics. Each video is assigned one of five difficulty
+            levels, from introductory topics like income and banking to advanced
+            material on corporate filings, so you can start with the version
+            that fits what you already know.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-4">
@@ -88,21 +87,20 @@ export default function HomePage() {
           <div className="mt-12 grid gap-14 lg:grid-cols-[1fr_1.15fr] lg:gap-20">
             <div>
               <h2 className="font-display text-3xl leading-tight font-medium text-balance sm:text-4xl">
-                An organization that publishes what its members learn.
+                We publish what we learn.
               </h2>
               <p className="mt-7 leading-relaxed text-ink/75">
-                FLARE operates at Lamar Academy in the Rio Grande Valley.
-                Members identify a subject they have had to resolve for
-                themselves, such as the mechanics of tax withholding, the
-                components of a credit score, or the drivers of an increase in
-                rent, and produce a concise video explaining it.
+                FLARE is a student organization at Lamar Academy in the Rio
+                Grande Valley. Members pick something they had to work out for
+                themselves, such as how tax withholding works, what moves a
+                credit score, or why rent went up, and make a short video
+                explaining it.
               </p>
               <p className="mt-5 leading-relaxed text-ink/75">
-                Each submission is assigned a difficulty level and a topic, then
-                published to the library alongside other treatments of the same
-                subject. That is the organization&rsquo;s function: resolve a
-                question, then document the answer for those who encounter it
-                next.
+                Every video gets a difficulty level and a topic, then joins the
+                library alongside other explanations of the same subject. Answer
+                a question once, and the next person doesn&rsquo;t have to start
+                from nothing.
               </p>
             </div>
 
@@ -125,14 +123,17 @@ export default function HomePage() {
       {/* ----------------------------------------------- The difficulty ladder */}
       <section className="border-b border-ink/10 bg-paper-deep">
         <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-          <p className="label text-ink/45">The five levels</p>
-          <h2 className="font-display mt-6 max-w-3xl text-3xl leading-tight font-medium text-balance sm:text-4xl">
-            Levels correspond to prior knowledge rather than to age.
+          {/*
+            No eyebrow here. The copy deck names this section "The five levels"
+            and also gives it that heading, so an eyebrow would just repeat the
+            h2 word for word.
+          */}
+          <h2 className="font-display max-w-3xl text-3xl leading-tight font-medium text-balance sm:text-4xl">
+            The five levels
           </h2>
           <p className="mt-6 max-w-2xl leading-relaxed text-ink/70">
-            The age ranges below are indicative only. The operative distinction
-            between levels is what each one presumes the viewer has already
-            encountered.
+            Levels describe what a video assumes you already know, not how old
+            you are. The age ranges are a rough guide.
           </p>
 
           <ol className="mt-14 space-y-px overflow-hidden rounded-lg bg-ink/12">
@@ -173,13 +174,12 @@ export default function HomePage() {
           <div className="grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-end">
             <div>
               <h2 className="font-display max-w-2xl text-3xl leading-tight font-medium text-balance sm:text-4xl">
-                Contribute to the library.
+                Add to the library.
               </h2>
               <p className="mt-6 max-w-xl leading-relaxed text-mist/70">
-                Contributors upload their video to YouTube as an unlisted entry,
-                submit the link, and assign a difficulty level and topic.
-                Submission is open to FLARE members and to approved outside
-                contributors.
+                Upload your video to YouTube as unlisted, paste the link here,
+                and pick a difficulty level and topic. Open to FLARE members and
+                approved outside contributors.
               </p>
             </div>
             <div className="flex flex-wrap gap-4 lg:justify-end">
@@ -187,7 +187,7 @@ export default function HomePage() {
                 href="/contribute"
                 className="label rounded-full bg-mist px-7 py-4 text-ink transition-opacity hover:opacity-90"
               >
-                Contribution guidelines
+                How to contribute
               </Link>
             </div>
           </div>
