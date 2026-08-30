@@ -429,9 +429,12 @@ except the tracked-out label style. Errors state what happened and what the read
 without implying reader error. This is a nonprofit teaching young people about money, not a fintech
 startup.
 
-**No em dashes anywhere.** Use a comma, a colon, a semicolon, or a full stop. This applies to code
-comments as well as copy, so the rule holds repo-wide and greps clean. En dashes in numeric ranges
-("Ages 11–14") are correct and are not affected.
+**No em dashes anywhere in UI copy. Use commas, colons, or a new sentence.**
+
+Code comments follow the same rule, so `grep` for the character over `src/` comes back empty and
+stays a usable check. This file is exempt: it is a working document, not UI copy, and its prose uses
+them throughout. En dashes in numeric ranges ("Ages 11–14") are a different character, are correct,
+and are not affected.
 
 > **This section has been wrong twice. The copy deck is the authority, not this paragraph.**
 > Phase 1 was first written conversationally per the original rule, judged too informal, and
