@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { completeOnboarding, type OnboardingState } from "./actions";
 import { GRADES } from "@/lib/taxonomy";
@@ -120,13 +121,13 @@ export function OnboardingForm({ initial }: { initial: OnboardingState["values"]
           />
           <span className="text-sm leading-relaxed text-ink/75">
             I accept the{" "}
-            <a href="/terms" className="underline underline-offset-4">
+            <Link href="/terms" className="underline underline-offset-4">
               Terms of Service
-            </a>{" "}
+            </Link>{" "}
             and the{" "}
-            <a href="/privacy" className="underline underline-offset-4">
+            <Link href="/privacy" className="underline underline-offset-4">
               Privacy Policy
-            </a>
+            </Link>
             .
           </span>
         </label>

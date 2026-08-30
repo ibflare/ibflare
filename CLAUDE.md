@@ -369,15 +369,22 @@ profile. Hiding a button is not enforcement. Likewise, the comments insert polic
 /dashboard/admin/log    Gated on can_moderate. Audit log, newest first
 /dashboard/admin/settings  Gated on can_manage_users. The kill switches from §4
 /suspended              Shown to a suspended user: reason, date, who to contact
-/privacy                Privacy Policy. Linked from the footer. NOT YET WRITTEN
-/terms                  Terms of Service. Linked from the footer. NOT YET WRITTEN
+/privacy                Privacy Policy. Client-supplied copy. Linked from the footer and onboarding
+/terms                  Terms of Service. Client-supplied copy. Linked from the footer and onboarding
 ```
 
-> **The footer links to `/privacy` and `/terms` as of phase 1, and neither page
-> exists.** They 404. Both must exist before launch, and neither should be
-> drafted casually: this site collects `grade`, `city`, and `school` from
-> minors, so the privacy policy has to describe that accurately and match the
-> §9 constraints. Get an adult with authority over the club to review both.
+> **Both pages now exist, with client-supplied copy.** They are static, rendered as markup rather
+> than through a markdown dependency, sharing the `.legal` prose class in `globals.css`.
+>
+> Two things in them still need attention before launch:
+> - The privacy policy says the site is at **`flare.example.org`**, which is a placeholder. Replace
+>   it with the real domain when there is one.
+> - Neither has been reviewed by an adult with authority over the club. They describe collection of
+>   `grade`, `city`, `school`, and `birth_year` from minors, so that review matters.
+>
+> The policy also states "Videos you publish and comments you post: Anyone with an account", which
+> matches the viewing gate in §9.4. If `REQUIRE_ACCOUNT_TO_VIEW` is flipped back to false, that row
+> becomes wrong and the policy has to change with it.
 
 **Officers are no longer listed on the landing page.** The placeholder cards
 were removed in phase 1. Note that §2 gives "listing current officers on the

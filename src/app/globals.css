@@ -74,6 +74,97 @@
   }
 
   /*
+   * Long-form prose, for the privacy policy and terms. Single column, set at
+   * a generous measure. Spacing is set per element rather than with a
+   * universal sibling rule, so a heading after a list behaves predictably.
+   */
+  .legal {
+    line-height: 1.75;
+    color: color-mix(in srgb, var(--color-ink) 80%, transparent);
+  }
+
+  .legal h2 {
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--color-ink);
+    margin-top: 3.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .legal h3 {
+    font-family: var(--font-display);
+    font-size: 1.1875rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--color-ink);
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .legal p {
+    margin-bottom: 1.25rem;
+  }
+
+  .legal ul {
+    list-style: disc;
+    padding-left: 1.35em;
+    margin-bottom: 1.25rem;
+  }
+
+  .legal li {
+    margin-bottom: 0.5rem;
+  }
+
+  .legal strong {
+    font-weight: 500;
+    color: var(--color-ink);
+  }
+
+  .legal a {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-ink) 30%, transparent);
+    text-underline-offset: 4px;
+  }
+
+  .legal a:hover {
+    text-decoration-color: var(--color-ink);
+  }
+
+  .legal hr {
+    border: 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
+    margin-top: 3.5rem;
+  }
+
+  .legal table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+
+  .legal th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--color-ink);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+    padding: 0.75rem 1rem 0.75rem 0;
+  }
+
+  .legal td {
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+    padding: 0.75rem 1rem 0.75rem 0;
+    vertical-align: top;
+  }
+
+  .legal address {
+    font-style: normal;
+    line-height: 1.7;
+  }
+
+  /*
    * The tracked-out label style from the logo's tagline lockup.
    * Eyebrows, buttons, and small caps. CLAUDE.md §8.
    */
