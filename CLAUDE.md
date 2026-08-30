@@ -382,9 +382,16 @@ profile. Hiding a button is not enforcement. Likewise, the comments insert polic
 > - Neither has been reviewed by an adult with authority over the club. They describe collection of
 >   `grade`, `city`, `school`, and `birth_year` from minors, so that review matters.
 >
-> The policy also states "Videos you publish and comments you post: Anyone with an account", which
-> matches the viewing gate in §9.4. If `REQUIRE_ACCOUNT_TO_VIEW` is flipped back to false, that row
-> becomes wrong and the policy has to change with it.
+> **The privacy policy and the viewing gate have to move together.** Its "who can see what" table
+> now says "Anyone with an account" for both profile fields and published content, which is true
+> only while `REQUIRE_ACCOUNT_TO_VIEW` is set. Flip that constant and both rows become wrong.
+>
+> The profile row was corrected, and the date bumped to 30 August, when `/u/[username]` moved behind
+> sign-in. **The prose elsewhere in both documents still says "public"** in several places: "Username
+> and display name. These are public", "Bio and profile picture ... public if you provide them",
+> "Comments are public", and clause 3 of the terms. That reading is defensible, since the content is
+> posted rather than private, and the table is the precise statement. It was left alone rather than
+> rewritten unasked. Decide whether it should be tightened when the gate decision is settled.
 
 **Officers are no longer listed on the landing page.** The placeholder cards
 were removed in phase 1. Note that §2 gives "listing current officers on the
@@ -520,25 +527,34 @@ Most users are minors. Hard constraints, not preferences.
    date without signalling the cutoff. This is why the page says nothing about an age requirement,
    and why neither select has a default.
 
+   **Failing the age screen deletes the account.** Signup has already created an `auth.users` row
+   holding an email address by the time the age screen runs, and `attest_age()` deliberately writes
+   nothing. Leaving that row would mean holding a child's email address with no profile attached and
+   no way for them to ever use it. The action deletes the auth user through the service role client
+   in `src/lib/supabase/admin.ts`, which cascades to `profiles`, then signs them out. That file
+   imports `server-only`, so pulling it into a client component is a build error rather than a
+   leaked service role key.
+
+   **Retry is deliberately not prevented.** A blocked visitor can reload and give a different year.
+   Stopping that would mean recording that this person failed, which means keeping data about the
+   child, which is the thing the deletion above exists to avoid. The weaker gate is the right trade.
+
    **Watching now requires an account, which shuts under-13 visitors out of the site entirely.**
-   `/library` and `/v/[id]` are gated. An under-13 cannot pass the age screen, so cannot get an
-   account, so cannot watch anything, including Spark, the level written for the youngest readers.
-   Level 1 is relabelled "Ages 13–14" to match, since no one younger can reach it.
+   `/library`, `/v/[id]`, and `/u/[username]` are gated. Profiles are in that list because a profile
+   page carries a contributor's name and picture, and gating the library while leaving profiles open
+   would put the same people on a public page by another route. An under-13 cannot pass the age
+   screen, so cannot get an account, so cannot watch anything, including Spark, the level written
+   for the youngest readers. Level 1 is relabelled "Ages 13–14" to match, since no one younger can
+   reach it.
 
    **This is provisional.** It is a placeholder until the club and the faculty sponsor decide what
    they actually want, and it is expected to be reversed. The gate is a single constant,
    `REQUIRE_ACCOUNT_TO_VIEW` in `src/proxy.ts`: set it to false and the library is public again with
    no other change. No page component contains an auth check of its own, deliberately.
 
-   Open questions for that discussion, none of which the code answers:
-   - Should watching require an account at all? Gating a free financial literacy library for a
-     public school district is a real cost, and it is the reason under-13s are excluded rather than
-     merely limited.
-   - A blocked visitor can reload and try a different year. Nothing prevents retry, which is
-     inherent to any self-declared age screen; recording the failure to prevent it would mean
-     keeping data about the child.
-   - A blocked account still has an `auth.users` row, created at signup before the age screen runs.
-     Nothing currently deletes it.
+   Open question for that discussion, which the code does not answer: should watching require an
+   account at all? Gating a free financial literacy library for a public school district is a real
+   cost, and it is the reason under-13s are excluded rather than merely limited.
 
    **Optional lever worth knowing about:** Google returns an `hd` (hosted domain) claim for
    Workspace accounts. Signups can be restricted to the school's domain, with an allowlist table for

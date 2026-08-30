@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { deleteAuthUser } from "@/lib/supabase/admin";
 import { GRADES } from "@/lib/taxonomy";
 
 export type AgeState = {
@@ -37,6 +38,16 @@ export async function attestAge(
   }
 
   const supabase = await createClient();
+
+  // Captured before the delete below, which invalidates the session.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { blocked: false, error: "Your session expired. Sign in again." };
+  }
+
   const { data, error } = await supabase.rpc("attest_age", {
     p_birth_month: month,
     p_birth_year: year,
@@ -47,6 +58,26 @@ export async function attestAge(
   }
 
   if (data === false) {
+    /*
+     * Under 13. The account is removed rather than merely blocked.
+     *
+     * By this point signup has already created an auth.users row holding an
+     * email address, and attest_age() deliberately wrote nothing, so leaving
+     * it would mean holding a child's email with no profile attached and no
+     * way for them to ever use it. Deleting cascades to profiles.
+     *
+     * Sign out regardless of whether the delete succeeded: the session must
+     * not survive this either way.
+     */
+    await deleteAuthUser(user.id);
+
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // The session is already invalid once the user is gone. Clearing the
+      // cookies is what matters, and that has been attempted.
+    }
+
     return { blocked: true, error: null };
   }
 

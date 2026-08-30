@@ -28,8 +28,14 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 const REQUIRE_ACCOUNT_TO_VIEW = true;
 
-/** Only meaningful while REQUIRE_ACCOUNT_TO_VIEW is true. */
-const VIEWING_PREFIXES = ["/library", "/v"];
+/**
+ * Only meaningful while REQUIRE_ACCOUNT_TO_VIEW is true.
+ *
+ * /u is here because a profile page carries a contributor's name and picture.
+ * Gating the library while leaving profiles open would put the same people on
+ * a public page by another route.
+ */
+const VIEWING_PREFIXES = ["/library", "/v", "/u"];
 
 /** Always require an account, gate or no gate. */
 const DASHBOARD_PREFIXES = ["/dashboard"];
