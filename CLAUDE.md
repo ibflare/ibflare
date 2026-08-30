@@ -19,12 +19,30 @@ structural changes. If a decision here turns out to be wrong, update this file i
 | Framework | Next.js (App Router, TypeScript) | Server components for reads, route handlers for writes |
 | Styling | Tailwind CSS v4 | Tokens in `src/app/globals.css` under `@theme`, see Brand |
 | Backend | Supabase (Postgres + Auth + RLS) | `@supabase/ssr` for cookie-based sessions |
-| Auth | Supabase Auth → Google OAuth only | No password auth, no email/password fallback |
+| Auth | Supabase Auth: Google OAuth and email/password | Email confirmation required. See below |
 | Video | YouTube embeds, resolved automatically | We store the video ID, never the file. See §5 |
 | Hosting | Vercel | Preview deploys on every branch |
 
 **Do not** add a state library, an ORM, or a component library. Server components plus the Supabase
 client cover this app.
+
+> **Changed after phase 2.** This row originally read "Google OAuth only, no password auth, no
+> email/password fallback". Email and password sign-in was added alongside Google at the client's
+> request. Two consequences follow, both recorded in §9.4:
+>
+> 1. **Email confirmation is mandatory and must stay on.** With it off, anyone can register an
+>    address they do not control. Supabase links accounts by email, so when the real owner of that
+>    address later signs in with Google, they are handed the attacker's existing account. The
+>    project currently reports `mailer_autoconfirm: false`, which is correct. Do not turn it off,
+>    not even to make local testing quicker.
+> 2. **The age gate is gone.** §9.4's under-13 protection rested entirely on Google performing age
+>    verification. An email/password signup asks nobody's age. See §9.4.
+
+> **Launch blocker: transactional email.** Confirmation mail currently goes through Supabase's
+> default shared sender, which is rate limited to a handful of messages per hour and is not intended
+> for production. A club meeting where thirty students sign up at once will silently fail for most
+> of them. Wire up Resend (or another real SMTP provider) in Supabase Auth, SMTP Settings, before
+> launch.
 
 > **Corrected in phase 1.** This section originally said tokens live in `tailwind.config.ts`. There
 > is no such file: Tailwind v4 is CSS-first and `create-next-app` no longer generates one. The
@@ -435,6 +453,15 @@ except the tracked-out label style. Errors state what happened and what the read
 without implying reader error. This is a nonprofit teaching young people about money, not a fintech
 startup.
 
+**Don't explain the UI. No reassurance copy, no explaining why a choice was made. Label the thing
+and move on.**
+
+A button that says "Continue with Google" does not need a paragraph above it explaining that Google
+is how you sign in, or one below reassuring you that we never see your password. Both are visible
+from the button. This applies hardest to auth, settings, and forms, where the instinct to explain is
+strongest and the reader is least interested. Teaching copy about money is the exception: that is
+the product, and it should be as long as it needs to be.
+
 **No em dashes anywhere in UI copy. Use commas, colons, or a new sentence.**
 
 Code comments follow the same rule, so `grep` for the character over `src/` comes back empty and
@@ -462,7 +489,17 @@ Most users are minors. Hard constraints, not preferences.
    with `can_manage_users`.
 2. Public identity is username, display name, and title. Encourage first name + last initial.
 3. Never collect a street address, phone number, or date of birth.
-4. Google sign-in only, which puts age gating on Google's side. No under-13 signup path.
+4. ~~Google sign-in only, which puts age gating on Google's side. No under-13 signup path.~~
+   **This no longer holds.** Email/password sign-in was added after phase 2, and an email signup
+   asks nobody how old they are. The under-13 path this rule closed is now open, and this is the
+   one item in a section headed "non-negotiable" that the code does not satisfy. Decide before
+   launch which of these applies:
+   - accept it, and say so plainly in the privacy policy; or
+   - gate email signups behind the school domain check described below, leaving Google as the only
+     open route; or
+   - add a date-of-birth step to email signup, which conflicts with rule 3 above, so prefer a
+     coarse "are you 13 or older" checkbox that collects nothing.
+
    **Optional lever worth knowing about:** Google returns an `hd` (hosted domain) claim for
    Workspace accounts. Signups can be restricted to the school's domain, with an allowlist table for
    outside contributors like guest economists. This makes a suspended student unable to simply

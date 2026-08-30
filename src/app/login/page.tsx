@@ -1,21 +1,18 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { signInWithGoogle } from "@/app/auth/actions";
+import { EmailAuthForm } from "./EmailAuthForm";
 
 export const metadata = {
   title: "Sign in",
 };
 
-export default async function LoginPage({
-  searchParams,
-}: PageProps<"/login">) {
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;
   const error = typeof params.error === "string" ? params.error : null;
   // Blank tells the callback to resolve the destination from the account.
   const next = typeof params.next === "string" ? params.next : "";
 
-  // Already signed in, so there is nothing to do here. Send them to their own
-  // profile rather than /dashboard, which does not exist until phase 3.
   const supabase = await createClient();
   const {
     data: { user },
@@ -34,29 +31,24 @@ export default async function LoginPage({
   }
 
   return (
-    <section>
-      <div className="mx-auto max-w-md px-6 py-24 sm:py-32">
-        <p className="label text-ink/45">Sign in</p>
-
-        <h1 className="font-display mt-6 text-4xl leading-[1.1] font-medium text-balance">
-          Sign in with Google.
+    // Centred in the space between header and footer rather than sitting at
+    // the top of it. min-h is viewport less the 4rem header.
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-16">
+      <div className="w-full max-w-sm">
+        <h1 className="font-display text-4xl leading-tight font-medium">
+          Sign in
         </h1>
-
-        <p className="mt-7 leading-relaxed text-ink/75">
-          Google is the only way to sign in to FLARE. There is no password to
-          make or forget, and we never see one.
-        </p>
 
         {error && (
           <p
             role="alert"
-            className="mt-8 rounded-lg border border-hot/40 bg-hot/5 px-5 py-4 text-sm leading-relaxed text-ink"
+            className="mt-8 rounded-lg border border-hot/40 bg-hot/5 px-5 py-4 text-sm leading-relaxed"
           >
             {error}
           </p>
         )}
 
-        <form action={signInWithGoogle} className="mt-10">
+        <form action={signInWithGoogle} className="mt-8">
           <input type="hidden" name="next" value={next} />
           <button
             type="submit"
@@ -67,13 +59,13 @@ export default async function LoginPage({
           </button>
         </form>
 
-        <p className="mt-10 text-sm leading-relaxed text-ink/60">
-          Signing in creates an account so you can comment and, if an officer
-          gives you posting access, publish videos. Watching does not require an
-          account.
+        <EmailAuthForm next={next} />
+
+        <p className="mt-8 text-sm text-ink/55">
+          You don&rsquo;t need an account to watch.
         </p>
       </div>
-    </section>
+    </div>
   );
 }
 

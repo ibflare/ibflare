@@ -2,12 +2,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/auth/actions";
+import { HeaderAuthControl } from "./HeaderAuthControl";
 
 /**
- * The header uses FLARE_WORDMARK.png, the full lockup cropped to just the
- * wordmark (generated from FLARE_LOGO.png, tagline band removed). The tagline
- * in the full logo is ~25px tall in a 724px-tall file, so at header height it
- * renders as illegible mush. The full lockup belongs somewhere it has room.
+ * Ink bar. On paper it was the same pale sage as the page beneath it, so the
+ * two read as one flat surface with a hairline through it.
+ *
+ * The wordmark is the mist variant for the same reason the footer uses it: the
+ * deep green original is invisible against this background. Both variants are
+ * cropped from FLARE_LOGO.png with the tagline band removed, since that band
+ * is 25px tall in a 724px file and turns to mush at header height.
  */
 const NAV = [
   { href: "/library", label: "Library", mobile: true },
@@ -22,8 +26,6 @@ export async function SiteHeader() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Only the username is needed here, so read the public projection rather
-  // than pulling the whole private row into the layout.
   let username: string | null = null;
   if (user) {
     const { data } = await supabase
@@ -35,11 +37,11 @@ export async function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/85 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 bg-ink text-mist">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:gap-6 sm:px-6">
         <Link href="/" aria-label="FLARE, home" className="shrink-0">
           <Image
-            src="/images/FLARE_WORDMARK.png"
+            src="/images/FLARE_WORDMARK_MIST.png"
             alt="FLARE"
             width={1993}
             height={517}
@@ -53,7 +55,7 @@ export async function SiteHeader() {
             <Link
               key={item.href}
               href={item.href}
-              className={`label text-ink/70 transition-colors hover:text-ink ${
+              className={`label text-mist/70 transition-colors hover:text-mist ${
                 item.mobile ? "" : "hidden sm:inline-block"
               }`}
             >
@@ -66,7 +68,7 @@ export async function SiteHeader() {
               {username && (
                 <Link
                   href={`/u/${username}`}
-                  className="label hidden text-ink/70 transition-colors hover:text-ink sm:inline-block"
+                  className="label hidden text-mist/70 transition-colors hover:text-mist sm:inline-block"
                 >
                   Profile
                 </Link>
@@ -74,19 +76,14 @@ export async function SiteHeader() {
               <form action={signOut}>
                 <button
                   type="submit"
-                  className="label rounded-full border border-ink/25 px-4 py-2.5 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-mist"
+                  className="label rounded-full border border-mist/30 px-4 py-2.5 text-mist transition-colors hover:border-mist hover:bg-mist hover:text-ink"
                 >
                   Sign out
                 </button>
               </form>
             </>
           ) : (
-            <Link
-              href="/login"
-              className="label rounded-full border border-ink/25 px-4 py-2.5 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-mist"
-            >
-              Sign in
-            </Link>
+            <HeaderAuthControl />
           )}
         </nav>
       </div>
