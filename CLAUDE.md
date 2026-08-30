@@ -385,6 +385,12 @@ No bulk actions, no CSV import, no inline table editing. One person at a time, o
 Middleware: unauthenticated users hitting `/dashboard/*` go to `/login`. Signed-in users with
 `onboarded = false` are redirected to `/onboarding` from everywhere except `/onboarding`.
 
+> **The file is `src/proxy.ts`, not `middleware.ts`.** Next 16 deprecated the `middleware` file
+> convention and renamed it to `proxy`; the export is `proxy`, and `middleware.ts` is silently
+> ignored. Execution model, matcher, and position in the request lifecycle are unchanged, so
+> "middleware" remains the right word for what it does. It also refreshes the Supabase session on
+> every request: server components cannot write cookies, so without it sessions expire on their own.
+
 Search uses `websearch_to_tsquery` against `search_tsv`. Never fetch the whole table and filter
 client-side — it breaks at a few hundred rows.
 
@@ -504,6 +510,35 @@ Outstanding, to be cleared as later phases land:
 - `/privacy` and `/terms` are linked from the footer and 404. See §7.
 - Officers are not shown anywhere. If they should return to the landing page, read them from
   `profiles` in phase 2 rather than reinstating a placeholder file.
+
+### Phase 2 status
+
+Code complete, **not yet working end to end**: it is blocked on two things that can only be done in
+the Supabase dashboard, listed below. Built: `supabase/migrations/20260829000000_profiles_and_auth.sql`,
+the Supabase browser/server clients, `src/proxy.ts`, `/login`, `/auth/callback`, `/onboarding`, and
+`/u/[username]`. The header now reflects signed-in state.
+
+Blocked on:
+
+1. **The migration has not been run.** `public.profiles` does not exist in the project yet. The
+   service role key can reach PostgREST but cannot execute DDL, so this has to be pasted into the
+   SQL editor (or pushed with the CLI, which needs the database password).
+2. **Google is not enabled as an auth provider.** `/auth/v1/settings` reports `email` only, so
+   sign-in fails at the provider. Section 11 has the Google Cloud Console steps.
+
+Decisions worth knowing:
+
+- `audit_log` is created in this migration rather than in phase 4, because `set_user_permissions`
+  cannot exist without it and section 6 makes that function part of the profiles security model.
+  No videos or comments tables were touched.
+- **Column privileges, not RLS, are what stop self-promotion.** `authenticated` is granted UPDATE on
+  only the columns a user owns; `role`, `title`, the capability flags, and the suspension columns
+  are simply not in the grant list, so Postgres rejects the write before RLS is consulted.
+  `set_user_permissions` runs as owner and is the sole path to those columns.
+- Usernames are immutable once `onboarded` is true, enforced by trigger. They are the key in
+  `/u/[username]`, so letting them change would break every existing link to a profile.
+- The signup trigger defaults `display_name` to first name + last initial from Google, which is the
+  public identity section 9.2 asks for. Onboarding lets them edit it.
 
 ### Media assets
 

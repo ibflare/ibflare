@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { signOut } from "@/app/auth/actions";
 
 /**
  * The header uses FLARE_WORDMARK.png, the full lockup cropped to just the
@@ -14,7 +16,24 @@ const NAV = [
   { href: "/contribute", label: "Contribute", mobile: false },
 ];
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Only the username is needed here, so read the public projection rather
+  // than pulling the whole private row into the layout.
+  let username: string | null = null;
+  if (user) {
+    const { data } = await supabase
+      .from("public_profiles")
+      .select("username")
+      .eq("id", user.id)
+      .maybeSingle();
+    username = data?.username ?? null;
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/85 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:gap-6 sm:px-6">
@@ -41,12 +60,34 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <Link
-            href="/login"
-            className="label rounded-full border border-ink/25 px-4 py-2.5 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-mist"
-          >
-            Sign in
-          </Link>
+
+          {user ? (
+            <>
+              {username && (
+                <Link
+                  href={`/u/${username}`}
+                  className="label hidden text-ink/70 transition-colors hover:text-ink sm:inline-block"
+                >
+                  Profile
+                </Link>
+              )}
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="label rounded-full border border-ink/25 px-4 py-2.5 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-mist"
+                >
+                  Sign out
+                </button>
+              </form>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="label rounded-full border border-ink/25 px-4 py-2.5 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-mist"
+            >
+              Sign in
+            </Link>
+          )}
         </nav>
       </div>
     </header>

@@ -45,6 +45,25 @@ export const DIFFICULTY_LEVELS = [
 
 export type DifficultyLevel = (typeof DIFFICULTY_LEVELS)[number]["level"];
 
+/**
+ * Onboarding's grade options. PRIVATE data: stored on profiles.grade and never
+ * rendered on a public page. CLAUDE.md sections 3 and 9.1.
+ *
+ * Must stay in step with the profiles_grade_valid check constraint in
+ * supabase/migrations/20260829000000_profiles_and_auth.sql.
+ */
+export const GRADES = [
+  { value: "9", label: "9th grade" },
+  { value: "10", label: "10th grade" },
+  { value: "11", label: "11th grade" },
+  { value: "12", label: "12th grade" },
+  { value: "college", label: "College" },
+  { value: "educator", label: "Educator" },
+  { value: "other", label: "Other" },
+] as const;
+
+export type Grade = (typeof GRADES)[number]["value"];
+
 export const TOPICS = [
   "taxes",
   "banking",
