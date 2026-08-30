@@ -513,18 +513,29 @@ Outstanding, to be cleared as later phases land:
 
 ### Phase 2 status
 
-Code complete, **not yet working end to end**: it is blocked on two things that can only be done in
-the Supabase dashboard, listed below. Built: `supabase/migrations/20260829000000_profiles_and_auth.sql`,
-the Supabase browser/server clients, `src/proxy.ts`, `/login`, `/auth/callback`, `/onboarding`, and
-`/u/[username]`. The header now reflects signed-in state.
+Done and verified against the live project. Built:
+`supabase/migrations/20260829000000_profiles_and_auth.sql`, the Supabase browser/server clients,
+`src/proxy.ts`, `/login`, `/auth/callback`, `/onboarding`, and `/u/[username]`. The header reflects
+signed-in state.
 
-Blocked on:
+Verified rather than assumed, by probing the project directly:
 
-1. **The migration has not been run.** `public.profiles` does not exist in the project yet. The
-   service role key can reach PostgREST but cannot execute DDL, so this has to be pasted into the
-   SQL editor (or pushed with the CLI, which needs the database password).
-2. **Google is not enabled as an auth provider.** `/auth/v1/settings` reports `email` only, so
-   sign-in fails at the provider. Section 11 has the Google Cloud Console steps.
+| Check | Result |
+|---|---|
+| Migration objects present | `profiles`, `audit_log`, `public_profiles` |
+| Google enabled | yes |
+| anon reads base `profiles` | `401` |
+| anon reads `audit_log` | `401` |
+| anon reads `public_profiles` | `200` |
+| anon selects `grade` from the view | `42703 column does not exist` |
+| `/dashboard` while signed out | redirects to `/login?next=/dashboard` |
+| `/u/<unknown>` | `404` |
+| Google handoff | correct `redirect_uri`, `scope=email profile` |
+
+That `42703` is the point of the view: the private columns are not merely unrendered, they are
+absent from the only profile surface anon can reach.
+
+Migrations are applied with `supabase db push` against a CLI-linked project.
 
 Decisions worth knowing:
 
@@ -539,6 +550,12 @@ Decisions worth knowing:
   `/u/[username]`, so letting them change would break every existing link to a profile.
 - The signup trigger defaults `display_name` to first name + last initial from Google, which is the
   public identity section 9.2 asks for. Onboarding lets them edit it.
+- **Signing in lands on `/u/[username]`, not `/dashboard`.** `/dashboard` is the natural destination
+  and returns in phase 3, but it does not exist yet and dropping someone into a 404 straight after
+  sign-in is not a welcome. `/login` and `/auth/callback` treat a blank `next` as "resolve the
+  destination from the account": onboarded users go to their profile, everyone else to
+  `/onboarding`. An explicit `next` still wins, and is rejected unless it is a same-site path, so
+  the parameter cannot be used as an open redirect.
 
 ### Media assets
 

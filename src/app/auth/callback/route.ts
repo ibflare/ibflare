@@ -12,7 +12,8 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  // Empty means "decide once we know who signed in". Resolved below.
+  const next = searchParams.get("next") ?? "";
 
   // Google can return an error instead of a code, for instance if the person
   // cancelled at the consent screen.
@@ -40,7 +41,30 @@ export async function GET(request: NextRequest) {
 
   // Only ever redirect to a path on this site. `next` arrives from the query
   // string, so treating it as a full URL would be an open redirect.
-  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  if (next.startsWith("/") && !next.startsWith("//")) {
+    return NextResponse.redirect(`${origin}${next}`);
+  }
 
-  return NextResponse.redirect(`${origin}${safeNext}`);
+  // No explicit destination, so send them to their own profile. /dashboard is
+  // the natural landing spot but does not exist until phase 3, and bouncing
+  // someone into a 404 immediately after signing in is not a welcome.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username, onboarded")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.onboarded) {
+      return NextResponse.redirect(`${origin}/u/${profile.username}`);
+    }
+  }
+
+  // First sign-in, or the signup trigger has not landed yet. Onboarding is
+  // where they need to be either way.
+  return NextResponse.redirect(`${origin}/onboarding`);
 }

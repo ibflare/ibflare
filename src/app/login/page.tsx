@@ -11,14 +11,27 @@ export default async function LoginPage({
 }: PageProps<"/login">) {
   const params = await searchParams;
   const error = typeof params.error === "string" ? params.error : null;
-  const next = typeof params.next === "string" ? params.next : "/dashboard";
+  // Blank tells the callback to resolve the destination from the account.
+  const next = typeof params.next === "string" ? params.next : "";
 
-  // Already signed in, so there is nothing to do here.
+  // Already signed in, so there is nothing to do here. Send them to their own
+  // profile rather than /dashboard, which does not exist until phase 3.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) redirect(next.startsWith("/") ? next : "/dashboard");
+
+  if (user) {
+    if (next.startsWith("/") && !next.startsWith("//")) redirect(next);
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username, onboarded")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    redirect(profile?.onboarded ? `/u/${profile.username}` : "/onboarding");
+  }
 
   return (
     <section>

@@ -10,14 +10,16 @@ import { createClient } from "@/lib/supabase/server";
  * what keeps the under-13 signup path closed (section 9.4).
  */
 export async function signInWithGoogle(formData: FormData) {
-  const next = String(formData.get("next") ?? "/dashboard");
+  // Blank is meaningful: it tells the callback to work out the destination
+  // once it knows who signed in.
+  const next = String(formData.get("next") ?? "").trim();
   const supabase = await createClient();
 
   // Built from the request rather than hardcoded, so this works on localhost,
   // on Vercel previews, and in production without a per-environment constant.
   const origin = (await headers()).get("origin") ?? "http://localhost:3000";
 
-  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "";
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
