@@ -60,10 +60,6 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </form>
 
         <EmailAuthForm next={next} />
-
-        <p className="mt-8 text-sm text-ink/55">
-          You don&rsquo;t need an account to watch.
-        </p>
       </div>
     </div>
   );

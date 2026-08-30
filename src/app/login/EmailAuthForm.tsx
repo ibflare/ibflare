@@ -72,10 +72,15 @@ export function EmailAuthForm({ next }: { next: string }) {
         {mode === "signin" ? "Sign in" : "Create account"}
       </button>
 
+      {/*
+        Left aligned to the same edge as the heading, labels, and fields. The
+        pill buttons centre their own labels, which is what pills do; a bare
+        text link centred between left-aligned elements just looks misplaced.
+      */}
       <button
         type="button"
         onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-        className="w-full text-sm text-ink/55 underline decoration-ink/25 underline-offset-4 transition-colors hover:text-ink"
+        className="block text-sm text-ink/55 underline decoration-ink/25 underline-offset-4 transition-colors hover:text-ink"
       >
         {mode === "signin" ? "Create an account" : "Sign in instead"}
       </button>
