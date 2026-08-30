@@ -123,17 +123,14 @@ export function LoginPanel({
         >
           {mode === "signin" ? "Sign in" : "Create account"}
         </button>
-
-        <button
-          type="button"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="block text-sm text-ink/55 underline decoration-ink/25 underline-offset-4 transition-colors hover:text-ink"
-        >
-          {mode === "signin" ? "Create an account" : "Sign in instead"}
-        </button>
       </form>
 
-      <form action={signInWithGoogle} className="mt-8">
+      {/*
+        Its own form, since forms cannot nest, and placed between the submit
+        button and the mode toggle: below the email action, above the link that
+        switches which email action you are taking.
+      */}
+      <form action={signInWithGoogle} className="mt-4">
         <input type="hidden" name="next" value={next} />
         <button
           type="submit"
@@ -143,6 +140,14 @@ export function LoginPanel({
           Continue with Google
         </button>
       </form>
+
+      <button
+        type="button"
+        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        className="mt-4 block text-sm text-ink/55 underline decoration-ink/25 underline-offset-4 transition-colors hover:text-ink"
+      >
+        {mode === "signin" ? "Create an account" : "Sign in instead"}
+      </button>
     </div>
   );
 }

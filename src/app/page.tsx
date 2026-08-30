@@ -168,31 +168,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------ CTA band */}
-      <section className="bg-ink text-mist">
-        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-          <div className="grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-end">
-            <div>
-              <h2 className="font-display max-w-2xl text-3xl leading-tight font-medium text-balance sm:text-4xl">
-                Add to the library.
-              </h2>
-              <p className="mt-6 max-w-xl leading-relaxed text-mist/70">
-                Upload your video to YouTube as unlisted, paste the link here,
-                and pick a difficulty level and topic. Open to FLARE members and
-                approved outside contributors.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4 lg:justify-end">
-              <Link
-                href="/contribute"
-                className="label rounded-full bg-mist px-7 py-4 text-ink transition-opacity hover:opacity-90"
-              >
-                How to contribute
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
     </>
   );
 }

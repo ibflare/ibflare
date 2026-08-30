@@ -5,93 +5,23 @@ import { createClient } from "@/lib/supabase/server";
 import { deleteAuthUser } from "@/lib/supabase/admin";
 import { GRADES } from "@/lib/taxonomy";
 
-export type AgeState = {
-  /** Set when the account did not clear the minimum age. */
-  blocked: boolean;
-  error: string | null;
-};
-
-/**
- * The age screen.
- *
- * Deliberately a neutral screen: two selects, neither pre-selected, and no
- * text anywhere stating what age is required. FTC guidance treats a "are you
- * 13 or older" checkbox as a leading design, because it tells the reader which
- * answer opens the door. Asking for a birth date without signalling the cutoff
- * is the neutral form. See CLAUDE.md section 9.4.
- *
- * The age itself is computed in the database by attest_age(), not here. The
- * birth month reaches Postgres as an argument and is never stored.
- */
-export async function attestAge(
-  _prev: AgeState,
-  formData: FormData,
-): Promise<AgeState> {
-  const month = Number(formData.get("birth_month"));
-  const year = Number(formData.get("birth_year"));
-
-  if (!Number.isInteger(month) || month < 1 || month > 12) {
-    return { blocked: false, error: "Choose a month." };
-  }
-  if (!Number.isInteger(year) || year < 1900) {
-    return { blocked: false, error: "Choose a year." };
-  }
-
-  const supabase = await createClient();
-
-  // Captured before the delete below, which invalidates the session.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { blocked: false, error: "Your session expired. Sign in again." };
-  }
-
-  const { data, error } = await supabase.rpc("attest_age", {
-    p_birth_month: month,
-    p_birth_year: year,
-  });
-
-  if (error) {
-    return { blocked: false, error: error.message };
-  }
-
-  if (data === false) {
-    /*
-     * Under 13. The account is removed rather than merely blocked.
-     *
-     * By this point signup has already created an auth.users row holding an
-     * email address, and attest_age() deliberately wrote nothing, so leaving
-     * it would mean holding a child's email with no profile attached and no
-     * way for them to ever use it. Deleting cascades to profiles.
-     *
-     * Sign out regardless of whether the delete succeeded: the session must
-     * not survive this either way.
-     */
-    await deleteAuthUser(user.id);
-
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // The session is already invalid once the user is gone. Clearing the
-      // cookies is what matters, and that has been attempted.
-    }
-
-    return { blocked: true, error: null };
-  }
-
-  redirect("/onboarding");
-}
-
 export type OnboardingState = {
   errors: Partial<
     Record<
-      "username" | "display_name" | "grade" | "school" | "city" | "terms" | "form",
+      | "birth"
+      | "username"
+      | "display_name"
+      | "grade"
+      | "school"
+      | "city"
+      | "terms"
+      | "form",
       string
     >
   >;
   values: {
+    birth_month: string;
+    birth_year: string;
     username: string;
     display_name: string;
     grade: string;
@@ -120,6 +50,8 @@ export async function completeOnboarding(
   formData: FormData,
 ): Promise<OnboardingState> {
   const values = {
+    birth_month: String(formData.get("birth_month") ?? ""),
+    birth_year: String(formData.get("birth_year") ?? ""),
     username: String(formData.get("username") ?? "").trim().toLowerCase(),
     display_name: String(formData.get("display_name") ?? "").trim(),
     grade: String(formData.get("grade") ?? "").trim(),
@@ -128,6 +60,16 @@ export async function completeOnboarding(
   };
 
   const errors: OnboardingState["errors"] = {};
+
+  const month = Number(values.birth_month);
+  const year = Number(values.birth_year);
+
+  if (
+    !Number.isInteger(month) || month < 1 || month > 12 ||
+    !Number.isInteger(year) || year < 1900
+  ) {
+    errors.birth = "Choose a month and a year.";
+  }
 
   if (!USERNAME_PATTERN.test(values.username)) {
     errors.username =
@@ -161,19 +103,121 @@ export async function completeOnboarding(
   }
 
   const supabase = await createClient();
+
+  // Captured before the delete below, which invalidates the session.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return {
-      errors: { form: "Your session expired. Sign in again." },
-      values,
-    };
+    return { errors: { form: "Your session expired. Sign in again." }, values };
+  }
+
+  /*
+   * Age is checked first, before a single other field is written.
+   *
+   * The form asks for everything on one page, so an under-13 will have typed a
+   * name and a school by the time they submit. None of it is ever stored: this
+   * call runs before the profile update below, and if it fails the account is
+   * deleted and the request never reaches the write. Typed is not collected.
+   */
+  const { data: oldEnough, error: ageError } = await supabase.rpc("attest_age", {
+    p_birth_month: month,
+    p_birth_year: year,
+  });
+
+  if (ageError) {
+    return { errors: { form: ageError.message }, values };
+  }
+
+  if (oldEnough === false) {
+    await deleteAuthUser(user.id);
+
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Already invalid once the user is gone. Clearing cookies is the point.
+    }
+
+    // A public page: by now the session is gone, so anything gated would
+    // bounce them to /login with no explanation.
+    redirect("/account-unavailable");
+  }
+
+  const fields = {
+    username: values.username,
+    display_name: values.display_name,
+    grade: values.grade,
+    school: values.school || null,
+    city: values.city || null,
+  };
+
+  const asUsernameError = (code?: string) =>
+    // 23505 is unique_violation. The only unique column here is username.
+    code === "23505"
+      ? { errors: { username: "That username is taken. Try another one." }, values }
+      : null;
+
+  /*
+   * Update first, then insert only if nothing matched.
+   *
+   * Not an upsert: PostgREST implements that as INSERT ... ON CONFLICT DO
+   * UPDATE, which needs UPDATE privilege on every column in the payload
+   * including id, and id is deliberately absent from the update grant because
+   * a primary key must never change. The upsert failed with "permission denied
+   * for table profiles" for exactly that reason.
+   *
+   * The insert branch exists because the signup trigger normally creates the
+   * row, but if it is ever missing an update silently affects zero rows and
+   * leaves the account stuck on this page with no error to show. Insert is
+   * column-restricted by 20260830010000, so it cannot set a capability flag.
+   *
+   * onboarded is not set here: the check constraint requires both consent
+   * stamps first, and one of them is written below.
+   */
+  const { data: updated, error: updateError } = await supabase
+    .from("profiles")
+    .update(fields)
+    .eq("id", user.id)
+    .select("id");
+
+  if (updateError) {
+    return (
+      asUsernameError(updateError.code) ?? {
+        errors: { form: `We could not save that: ${updateError.message}` },
+        values,
+      }
+    );
+  }
+
+  if (!updated || updated.length === 0) {
+    const { error: insertError } = await supabase
+      .from("profiles")
+      .insert({ id: user.id, ...fields });
+
+    if (insertError) {
+      return (
+        asUsernameError(insertError.code) ?? {
+          errors: { form: `We could not save that: ${insertError.message}` },
+          values,
+        }
+      );
+    }
+  }
+
+  // Called again because the first call above wrote nothing if the row did not
+  // exist yet. Idempotent, and this is what guarantees age_attested_at is set
+  // before the constraint below is tested.
+  const { error: stampError } = await supabase.rpc("attest_age", {
+    p_birth_month: month,
+    p_birth_year: year,
+  });
+  if (stampError) {
+    return { errors: { form: stampError.message }, values };
   }
 
   // Stamped server-side by a definer function, so the timestamp is ours rather
-  // than the client's. Separate from the age screen by design.
+  // than the client's. Separate from the age question by design.
   const { error: termsError } = await supabase.rpc("accept_terms");
   if (termsError) {
     return {
@@ -184,24 +228,10 @@ export async function completeOnboarding(
 
   const { error } = await supabase
     .from("profiles")
-    .update({
-      username: values.username,
-      display_name: values.display_name,
-      grade: values.grade,
-      school: values.school || null,
-      city: values.city || null,
-      onboarded: true,
-    })
+    .update({ onboarded: true })
     .eq("id", user.id);
 
   if (error) {
-    // 23505 is unique_violation. The only unique column here is username.
-    if (error.code === "23505") {
-      return {
-        errors: { username: "That username is taken. Try another one." },
-        values,
-      };
-    }
     return {
       errors: { form: `We could not save that: ${error.message}` },
       values,

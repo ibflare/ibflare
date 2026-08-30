@@ -434,6 +434,11 @@ No bulk actions, no CSV import, no inline table editing. One person at a time, o
 Middleware: unauthenticated users hitting `/dashboard/*` go to `/login`. Signed-in users with
 `onboarded = false` are redirected to `/onboarding` from everywhere except `/onboarding`.
 
+`/login`, `/onboarding`, `/auth/*`, and `/account-unavailable` render without the footer. It is a
+site-wide navigation surface, and three columns of links plus a liability notice under a form asking
+for a date of birth is noise. They keep the header, so the wordmark and a way out are still there.
+The list is in `ConditionalFooter`.
+
 > **The file is `src/proxy.ts`, not `middleware.ts`.** Next 16 deprecated the `middleware` file
 > convention and renamed it to `proxy`; the export is `proxy`, and `middleware.ts` is silently
 > ignored. Execution model, matcher, and position in the request lifecycle are unchanged, so
@@ -524,12 +529,17 @@ Most users are minors. Hard constraints, not preferences.
    Superseded. Email/password sign-in was added after phase 2, so age gating no longer rests on
    Google. **The app now runs its own age screen**, and the state of play is:
 
-   **The age screen.** First step of onboarding, before anything else is collected, so an account
-   that turns out to be under 13 has had no username, display name, school or city taken from it.
-   Two selects, birth month and birth year, neither pre-selected, and no text anywhere naming a
-   threshold or saying what happens next. `attest_age()` computes the age in Postgres and writes
-   `age_attested_at` only if it clears 13; under that it writes nothing at all, since recording the
-   attempt would mean holding data about a child who may not have an account.
+   **The age screen.** Part of the single onboarding form, not a separate step. Two selects, birth
+   month and birth year, neither pre-selected, and no text anywhere naming a threshold or saying
+   what happens next. `attest_age()` computes the age in Postgres and writes `age_attested_at` only
+   if it clears 13; under that it writes nothing at all, since recording the attempt would mean
+   holding data about a child who may not have an account.
+
+   **Nothing is stored for an under-13, even though the form asks for everything at once.** The
+   action calls `attest_age()` before it writes a single other field. An under-13 will have typed a
+   name and a school by the time they submit, and none of it reaches the database: the call fails,
+   the account is deleted, and the request redirects before the profile write is reached. Typed is
+   not collected. Keep that ordering if this action is ever refactored.
 
    **Only the year is stored.** The month is a function argument used to work out whether this
    year's birthday has passed, and is discarded. A year on its own is not a date of birth, so
@@ -653,6 +663,20 @@ Decisions worth knowing:
   only the columns a user owns; `role`, `title`, the capability flags, and the suspension columns
   are simply not in the grant list, so Postgres rejects the write before RLS is consulted.
   `set_user_permissions` runs as owner and is the sole path to those columns.
+
+  **INSERT needed the same treatment and originally did not have it.** `20260829000000` granted
+  INSERT with no column list, and the insert policy only checks that the id is your own. An
+  authenticated user with no profile row could therefore insert one with `can_manage_users = true`
+  and make themselves a sponsor. The signup trigger normally creates the row first, so the insert
+  collides on the primary key and the hole stays invisible; it stops being invisible the moment a
+  row is missing, which is what happens when rows are cleared by hand during testing. Fixed in
+  `20260830010000`. If a column is ever added that a user may write, add it to **both** grants.
+
+- **Do not use PostgREST upsert on `profiles`.** It compiles to `INSERT ... ON CONFLICT DO UPDATE`,
+  which needs UPDATE privilege on every column in the payload, including `id`. `id` is deliberately
+  absent from the update grant because a primary key must never change, so an upsert fails with
+  "permission denied for table profiles". Onboarding updates first and inserts only if nothing
+  matched, which needs each privilege separately and never asks to update `id`.
 - Usernames are immutable once `onboarded` is true, enforced by trigger. They are the key in
   `/u/[username]`, so letting them change would break every existing link to a profile.
 - The signup trigger defaults `display_name` to first name + last initial from Google, which is the

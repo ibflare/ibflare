@@ -5,7 +5,18 @@ import { useActionState } from "react";
 import { completeOnboarding, type OnboardingState } from "./actions";
 import { GRADES } from "@/lib/taxonomy";
 
-export function OnboardingForm({ initial }: { initial: OnboardingState["values"] }) {
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+export function OnboardingForm({
+  initial,
+  years,
+}: {
+  initial: OnboardingState["values"];
+  years: number[];
+}) {
   const [state, formAction, pending] = useActionState(completeOnboarding, {
     errors: {},
     values: initial,
@@ -14,7 +25,7 @@ export function OnboardingForm({ initial }: { initial: OnboardingState["values"]
   const v = state.values ?? initial;
 
   return (
-    <form action={formAction} className="mt-12 space-y-9">
+    <form action={formAction} className="mt-12 space-y-10">
       {state.errors.form && (
         <p
           role="alert"
@@ -24,10 +35,59 @@ export function OnboardingForm({ initial }: { initial: OnboardingState["values"]
         </p>
       )}
 
+      {/*
+        Neutral age screen: two selects, neither pre-selected, and nothing here
+        naming a threshold. The FTC treats "I am 13 or older" as leading,
+        because it tells the reader which answer opens the door. CLAUDE.md 9.4.
+      */}
+      <fieldset>
+        <legend className="label text-ink/60">Date of birth</legend>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <select
+            name="birth_month"
+            defaultValue={v.birth_month}
+            aria-label="Birth month"
+            required
+            className="rounded-lg border border-ink/25 bg-paper px-4 py-3 text-ink"
+          >
+            <option value="" disabled>
+              Month
+            </option>
+            {MONTHS.map((label, i) => (
+              <option key={label} value={i + 1}>
+                {label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            name="birth_year"
+            defaultValue={v.birth_year}
+            aria-label="Birth year"
+            required
+            className="rounded-lg border border-ink/25 bg-paper px-4 py-3 text-ink"
+          >
+            <option value="" disabled>
+              Year
+            </option>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+        {state.errors.birth && (
+          <p role="alert" className="mt-2 text-sm text-hot">
+            {state.errors.birth}
+          </p>
+        )}
+      </fieldset>
+
       <Field
         name="username"
         label="Username"
-        hint="Lowercase letters, numbers, and underscores. This is part of your profile address, and it cannot be changed later."
+        hint="Lowercase letters, numbers, and underscores. Part of your profile address, and permanent."
         defaultValue={v.username}
         error={state.errors.username}
         required
@@ -39,7 +99,7 @@ export function OnboardingForm({ initial }: { initial: OnboardingState["values"]
       <Field
         name="display_name"
         label="Display name"
-        hint="Shown on your profile and next to anything you post. We suggest your first name and last initial."
+        hint="Shown on your profile and next to anything you post. We suggest a first name and last initial."
         defaultValue={v.display_name}
         error={state.errors.display_name}
         required
@@ -48,15 +108,10 @@ export function OnboardingForm({ initial }: { initial: OnboardingState["values"]
       />
 
       {/* Everything below is private. Section 9.1. */}
-      <div className="rounded-lg border border-ink/12 bg-paper-deep/60 p-6 sm:p-8">
+      <div className="rounded-lg border border-ink/12 bg-paper-deep/50 p-6 sm:p-7">
         <p className="label text-ink/45">Not shown publicly</p>
-        <p className="mt-3 text-sm leading-relaxed text-ink/70">
-          Officers and the faculty sponsor use these to know who is in the club.
-          They never appear on your profile or anywhere else on the site. We do
-          not ask for your address, phone number, or birthday.
-        </p>
 
-        <div className="mt-8 space-y-9">
+        <div className="mt-7 space-y-8">
           <div>
             <label htmlFor="grade" className="label block text-ink/60">
               Grade
@@ -106,8 +161,7 @@ export function OnboardingForm({ initial }: { initial: OnboardingState["values"]
 
       {/*
         Its own checkbox, never folded into the age question. Combining them
-        makes each a weaker record of the other, and the two are answers to
-        different things.
+        makes each a weaker record of the other.
       */}
       <div>
         <label htmlFor="terms" className="flex items-start gap-3">
@@ -170,7 +224,7 @@ function Field({
         {label}
       </label>
       {hint && (
-        <p id={hintId} className="mt-2 text-sm leading-relaxed text-ink/60">
+        <p id={hintId} className="mt-2 text-sm leading-relaxed text-ink/55">
           {hint}
         </p>
       )}

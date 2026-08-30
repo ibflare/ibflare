@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Bodoni_Moda, Jost } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/SiteHeader";
-import { SiteFooter } from "@/components/SiteFooter";
+import { ConditionalFooter } from "@/components/ConditionalFooter";
 
 // Didone display face, matching the wordmark. CLAUDE.md §8.
 const bodoni = Bodoni_Moda({
@@ -44,7 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <SiteHeader />
         <main className="flex-1">{children}</main>
-        <SiteFooter />
+        <ConditionalFooter />
       </body>
     </html>
   );
