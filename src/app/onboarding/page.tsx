@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { OnboardingForm } from "./OnboardingForm";
+import { AgeForm } from "./AgeForm";
 
 export const metadata = {
   title: "Set up your account",
@@ -16,23 +17,37 @@ export default async function OnboardingPage() {
 
   const profile = await getCurrentProfile();
 
-  // Already done. Nothing here to repeat.
   if (profile?.onboarded) redirect(`/u/${profile.username}`);
+
+  /*
+   * The age screen comes first, and on its own. Nothing else is collected
+   * until it passes, so an account that turns out to be under 13 has had no
+   * username, name, school or city taken from it.
+   */
+  if (!profile?.age_attested_at) {
+    // Built here rather than in the client component: the two would disagree
+    // across a new year boundary and hydration would fail.
+    const thisYear = new Date().getFullYear();
+    const years = Array.from({ length: 96 }, (_, i) => thisYear - i);
+
+    return (
+      <section>
+        <div className="mx-auto max-w-2xl px-6 py-20 sm:py-24">
+          <h1 className="font-display text-4xl leading-[1.1] font-medium text-balance">
+            When were you born?
+          </h1>
+          <AgeForm years={years} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section>
       <div className="mx-auto max-w-2xl px-6 py-20 sm:py-24">
-        <p className="label text-ink/45">Set up your account</p>
-
-        <h1 className="font-display mt-6 text-4xl leading-[1.1] font-medium text-balance">
+        <h1 className="font-display text-4xl leading-[1.1] font-medium text-balance">
           A few things before you start.
         </h1>
-
-        <p className="mt-7 leading-relaxed text-ink/75">
-          This takes a minute and you only do it once. The first two are public.
-          Everything after that is only ever seen by officers and the faculty
-          sponsor.
-        </p>
 
         <OnboardingForm
           initial={{

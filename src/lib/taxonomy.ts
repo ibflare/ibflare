@@ -10,7 +10,9 @@ export const DIFFICULTY_LEVELS = [
   {
     level: 1,
     name: "Spark",
-    audience: "Ages 11–14",
+    // 13, not 11: an account is required to watch and the age screen blocks
+    // under-13 signups, so nobody younger can reach this level. Section 9.4.
+    audience: "Ages 13–14",
     assumes:
       "Assumes nothing. What a paycheck is, what a bank does with your money.",
   },

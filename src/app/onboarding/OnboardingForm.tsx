@@ -103,6 +103,40 @@ export function OnboardingForm({ initial }: { initial: OnboardingState["values"]
         </div>
       </div>
 
+      {/*
+        Its own checkbox, never folded into the age question. Combining them
+        makes each a weaker record of the other, and the two are answers to
+        different things.
+      */}
+      <div>
+        <label htmlFor="terms" className="flex items-start gap-3">
+          <input
+            id="terms"
+            name="terms"
+            type="checkbox"
+            required
+            aria-describedby={state.errors.terms ? "terms-error" : undefined}
+            className="mt-1 size-4 shrink-0 accent-[var(--color-ink)]"
+          />
+          <span className="text-sm leading-relaxed text-ink/75">
+            I accept the{" "}
+            <a href="/terms" className="underline underline-offset-4">
+              Terms of Service
+            </a>{" "}
+            and the{" "}
+            <a href="/privacy" className="underline underline-offset-4">
+              Privacy Policy
+            </a>
+            .
+          </span>
+        </label>
+        {state.errors.terms && (
+          <p id="terms-error" role="alert" className="mt-2 text-sm text-hot">
+            {state.errors.terms}
+          </p>
+        )}
+      </div>
+
       <button
         type="submit"
         disabled={pending}

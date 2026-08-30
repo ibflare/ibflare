@@ -13,8 +13,34 @@ import { NextResponse, type NextRequest } from "next/server";
  *   2. The route guards from section 7.
  */
 
-/** Signed out users hitting these get sent to /login. */
-const PROTECTED_PREFIXES = ["/dashboard"];
+/**
+ * Whether watching requires an account.
+ *
+ * This is the whole viewing gate. Set it to false and the library and every
+ * video page are public again; nothing else needs touching, and no page
+ * component contains an auth check of its own. It is written this way because
+ * the decision is provisional: it is expected to be revisited once the club
+ * and the faculty sponsor have discussed it. See CLAUDE.md section 9.4.
+ *
+ * Note what it costs while true: an under-13 visitor cannot pass the age
+ * screen, so gating viewing behind an account shuts them out of the site
+ * entirely, including material written for the youngest readers.
+ */
+const REQUIRE_ACCOUNT_TO_VIEW = true;
+
+/** Only meaningful while REQUIRE_ACCOUNT_TO_VIEW is true. */
+const VIEWING_PREFIXES = ["/library", "/v"];
+
+/** Always require an account, gate or no gate. */
+const DASHBOARD_PREFIXES = ["/dashboard"];
+
+/**
+ * Everything a signed-out visitor may reach. The landing page, /contribute,
+ * /login and the legal pages stay public in both configurations.
+ */
+const PROTECTED_PREFIXES = REQUIRE_ACCOUNT_TO_VIEW
+  ? [...DASHBOARD_PREFIXES, ...VIEWING_PREFIXES]
+  : DASHBOARD_PREFIXES;
 
 /**
  * Reachable before onboarding is finished. Everything else redirects to
@@ -58,7 +84,11 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!user) {
-    if (PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    if (
+      PROTECTED_PREFIXES.some(
+        (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+      )
+    ) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       // So login can send them back where they were headed.

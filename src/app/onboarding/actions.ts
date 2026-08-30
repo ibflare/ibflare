@@ -4,9 +4,61 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { GRADES } from "@/lib/taxonomy";
 
+export type AgeState = {
+  /** Set when the account did not clear the minimum age. */
+  blocked: boolean;
+  error: string | null;
+};
+
+/**
+ * The age screen.
+ *
+ * Deliberately a neutral screen: two selects, neither pre-selected, and no
+ * text anywhere stating what age is required. FTC guidance treats a "are you
+ * 13 or older" checkbox as a leading design, because it tells the reader which
+ * answer opens the door. Asking for a birth date without signalling the cutoff
+ * is the neutral form. See CLAUDE.md section 9.4.
+ *
+ * The age itself is computed in the database by attest_age(), not here. The
+ * birth month reaches Postgres as an argument and is never stored.
+ */
+export async function attestAge(
+  _prev: AgeState,
+  formData: FormData,
+): Promise<AgeState> {
+  const month = Number(formData.get("birth_month"));
+  const year = Number(formData.get("birth_year"));
+
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    return { blocked: false, error: "Choose a month." };
+  }
+  if (!Number.isInteger(year) || year < 1900) {
+    return { blocked: false, error: "Choose a year." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("attest_age", {
+    p_birth_month: month,
+    p_birth_year: year,
+  });
+
+  if (error) {
+    return { blocked: false, error: error.message };
+  }
+
+  if (data === false) {
+    return { blocked: true, error: null };
+  }
+
+  redirect("/onboarding");
+}
+
 export type OnboardingState = {
   errors: Partial<
-    Record<"username" | "display_name" | "grade" | "school" | "city" | "form", string>
+    Record<
+      "username" | "display_name" | "grade" | "school" | "city" | "terms" | "form",
+      string
+    >
   >;
   values: {
     username: string;
@@ -69,6 +121,10 @@ export async function completeOnboarding(
     errors.city = "That is too long. Keep it under 80 characters.";
   }
 
+  if (formData.get("terms") !== "on") {
+    errors.terms = "Accept the terms to continue.";
+  }
+
   if (Object.keys(errors).length > 0) {
     return { errors, values };
   }
@@ -81,6 +137,16 @@ export async function completeOnboarding(
   if (!user) {
     return {
       errors: { form: "Your session expired. Sign in again." },
+      values,
+    };
+  }
+
+  // Stamped server-side by a definer function, so the timestamp is ours rather
+  // than the client's. Separate from the age screen by design.
+  const { error: termsError } = await supabase.rpc("accept_terms");
+  if (termsError) {
+    return {
+      errors: { form: `We could not save that: ${termsError.message}` },
       values,
     };
   }

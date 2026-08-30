@@ -124,7 +124,7 @@ in step.
 
 | Level | Name | Audience | Assumes |
 |---|---|---|---|
-| 1 | Spark | Ages 11–14 | Assumes nothing. What a paycheck is, what a bank does with your money |
+| 1 | Spark | Ages 13–14 | Assumes nothing. What a paycheck is, what a bank does with your money |
 | 2 | Ember | Ages 14–16 | You have a job or you're about to. Pay stubs, simple tax returns, how credit works |
 | 3 | Blaze | Ages 16–18 | You have money to make decisions about. Index funds, 1099 work, FAFSA and student loans |
 | 4 | Torch | 18 and up | College level. Macroeconomic policy, company filings, valuation |
@@ -147,6 +147,9 @@ profiles (
   grade             text,      -- PRIVATE. 9-12 | college | educator | other
   city              text,      -- PRIVATE. City only, never an address
   school            text,      -- PRIVATE
+  birth_year        smallint,  -- PRIVATE. Year only. The month is never stored. See §9.4
+  age_attested_at   timestamptz,  -- set only by attest_age()
+  terms_accepted_at timestamptz,  -- set only by accept_terms()
   onboarded         boolean not null default false,
   suspended_at      timestamptz,
   suspended_by      uuid references profiles,
@@ -466,7 +469,7 @@ the product, and it should be as long as it needs to be.
 
 Code comments follow the same rule, so `grep` for the character over `src/` comes back empty and
 stays a usable check. This file is exempt: it is a working document, not UI copy, and its prose uses
-them throughout. En dashes in numeric ranges ("Ages 11–14") are a different character, are correct,
+them throughout. En dashes in numeric ranges ("Ages 13–14") are a different character, are correct,
 and are not affected.
 
 > **This section has been wrong twice. The copy deck is the authority, not this paragraph.**
@@ -490,15 +493,45 @@ Most users are minors. Hard constraints, not preferences.
 2. Public identity is username, display name, and title. Encourage first name + last initial.
 3. Never collect a street address, phone number, or date of birth.
 4. ~~Google sign-in only, which puts age gating on Google's side. No under-13 signup path.~~
-   **This no longer holds.** Email/password sign-in was added after phase 2, and an email signup
-   asks nobody how old they are. The under-13 path this rule closed is now open, and this is the
-   one item in a section headed "non-negotiable" that the code does not satisfy. Decide before
-   launch which of these applies:
-   - accept it, and say so plainly in the privacy policy; or
-   - gate email signups behind the school domain check described below, leaving Google as the only
-     open route; or
-   - add a date-of-birth step to email signup, which conflicts with rule 3 above, so prefer a
-     coarse "are you 13 or older" checkbox that collects nothing.
+   Superseded. Email/password sign-in was added after phase 2, so age gating no longer rests on
+   Google. **The app now runs its own age screen**, and the state of play is:
+
+   **The age screen.** First step of onboarding, before anything else is collected, so an account
+   that turns out to be under 13 has had no username, display name, school or city taken from it.
+   Two selects, birth month and birth year, neither pre-selected, and no text anywhere naming a
+   threshold or saying what happens next. `attest_age()` computes the age in Postgres and writes
+   `age_attested_at` only if it clears 13; under that it writes nothing at all, since recording the
+   attempt would mean holding data about a child who may not have an account.
+
+   **Only the year is stored.** The month is a function argument used to work out whether this
+   year's birthday has passed, and is discarded. A year on its own is not a date of birth, so
+   rule 3 above still holds. Where the month makes the age ambiguous, it resolves downward: someone
+   who might still be 12 is treated as 12.
+
+   **Why a birth date and not a checkbox.** The FTC treats "I am 13 or older" as a leading design,
+   because it tells the reader which answer opens the door. A neutral age screen asks for a birth
+   date without signalling the cutoff. This is why the page says nothing about an age requirement,
+   and why neither select has a default.
+
+   **Watching now requires an account, which shuts under-13 visitors out of the site entirely.**
+   `/library` and `/v/[id]` are gated. An under-13 cannot pass the age screen, so cannot get an
+   account, so cannot watch anything, including Spark, the level written for the youngest readers.
+   Level 1 is relabelled "Ages 13–14" to match, since no one younger can reach it.
+
+   **This is provisional.** It is a placeholder until the club and the faculty sponsor decide what
+   they actually want, and it is expected to be reversed. The gate is a single constant,
+   `REQUIRE_ACCOUNT_TO_VIEW` in `src/proxy.ts`: set it to false and the library is public again with
+   no other change. No page component contains an auth check of its own, deliberately.
+
+   Open questions for that discussion, none of which the code answers:
+   - Should watching require an account at all? Gating a free financial literacy library for a
+     public school district is a real cost, and it is the reason under-13s are excluded rather than
+     merely limited.
+   - A blocked visitor can reload and try a different year. Nothing prevents retry, which is
+     inherent to any self-declared age screen; recording the failure to prevent it would mean
+     keeping data about the child.
+   - A blocked account still has an `auth.users` row, created at signup before the age screen runs.
+     Nothing currently deletes it.
 
    **Optional lever worth knowing about:** Google returns an `hd` (hosted domain) claim for
    Workspace accounts. Signups can be restricted to the school's domain, with an allowlist table for
