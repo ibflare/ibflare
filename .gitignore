@@ -30,8 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files. .env* catches .env.local and every other variant; the negation
+# lets the valueless template through, and only that file.
 .env*
+!.env.example
 
 # vercel
 .vercel
