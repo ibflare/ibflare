@@ -15,7 +15,7 @@ export function HeaderAuthControl() {
   return (
     <Link
       href="/login"
-      className="label rounded-full border border-mist/30 px-4 py-2.5 text-mist transition-colors hover:border-mist hover:bg-mist hover:text-ink"
+      className="label rounded-full border border-ink/25 px-4 py-2.5 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-mist"
     >
       Sign in
     </Link>

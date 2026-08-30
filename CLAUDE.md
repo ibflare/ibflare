@@ -38,6 +38,20 @@ client cover this app.
 > 2. **The age gate is gone.** §9.4's under-13 protection rested entirely on Google performing age
 >    verification. An email/password signup asks nobody's age. See §9.4.
 
+> **Confirmation links arrive three different ways.** `/auth/confirm` has to handle all of them, and
+> the first version handled only the first, so every real confirmation email failed with "That
+> confirmation link is not valid":
+>
+> | Query | When |
+> |---|---|
+> | `token_hash` + `type` | the email template was customised to use `{{ .TokenHash }}` |
+> | `code` | the **default** `{{ .ConfirmationURL }}` template, which verifies at Supabase first and then redirects here with a PKCE code |
+> | `#access_token=...` | same, on the implicit flow. A fragment never reaches the server, so this one is finished in the browser by `ConfirmFromFragment` |
+>
+> The default template is the common case. If a confirmation link fails, check which of these the
+> URL actually carries before suspecting the redirect allowlist: reaching this route's error message
+> at all proves the allowlist is fine, because the redirect resolved.
+
 > **Launch blocker: transactional email.** Confirmation mail currently goes through Supabase's
 > default shared sender, which is rate limited to a handful of messages per hour and is not intended
 > for production. A club meeting where thirty students sign up at once will silently fail for most
