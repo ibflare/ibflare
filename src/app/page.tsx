@@ -82,10 +82,17 @@ export default function HomePage() {
       {/* ------------------------------------------- What FLARE does at Lamar */}
       <section className="border-b border-ink/10">
         <div className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-          <p className="label text-ink/45">FLARE at Lamar Academy</p>
+          {/*
+            items-start is what makes the sticky column work. The default
+            stretch would size this cell to the full row height, leaving it
+            nowhere to travel, and sticky would appear to do nothing.
 
-          <div className="mt-12 grid gap-14 lg:grid-cols-[1fr_1.15fr] lg:gap-20">
-            <div>
+            top-24 clears the 4rem sticky header with room to spare. Only from
+            lg up: below that the layout is stacked and there is no taller
+            neighbour to scroll against.
+          */}
+          <div className="grid gap-14 lg:grid-cols-[1fr_1.15fr] lg:items-start lg:gap-20">
+            <div className="lg:sticky lg:top-24">
               <h2 className="font-display text-3xl leading-tight font-medium text-balance sm:text-4xl">
                 We publish what we learn.
               </h2>
