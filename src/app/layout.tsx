@@ -41,9 +41,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${bodoni.variable} ${jost.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
+      <body>
         <SiteHeader />
-        <main className="flex-1">{children}</main>
+        {/*
+          Not flex-1. That stretched main to fill exactly the space left in the
+          viewport, which parked the footer at the bottom of the screen and made
+          it visible on any short page: the 404, a profile with no videos, an
+          empty dashboard.
+
+          A full viewport less the 4rem header means the footer always starts
+          below the fold and has to be scrolled to, which is what a footer is
+          for. Pages with real content push it further down as normal.
+        */}
+        <main className="min-h-[calc(100vh-4rem)]">{children}</main>
         <ConditionalFooter />
       </body>
     </html>

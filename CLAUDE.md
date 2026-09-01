@@ -461,9 +461,32 @@ sign, over a wide-tracked geometric sans tagline.
 --paper-deep #DBE3DD   one step down from paper, for alternating bands
 --mist       #EDEDEB   the flame's negative space in the logo; text on ink
 --black      #0A0A0A
---ember      #F0B429   accent, ONLY on difficulty 4-5 markers and focus states
---hot        #E8622C   accent, difficulty 5 only
+--ember      #F0B429   accent and focus states
+--hot        #E8622C   the hottest accent
 ```
+
+**The difficulty ramp**, one hue per level, cool to hot:
+
+```
+--level-1    #17726A   teal      Spark
+--level-2    #3F7D2E   green     Ember
+--level-3    #9C7A0E   gold      Blaze
+--level-4    #D2701A   orange    Torch
+--level-5    #C2371B   red       Flare
+```
+
+> **Changed after phase 2.** This section originally read "ember ONLY on difficulty 4-5 markers and
+> focus states, hot difficulty 5 only", which meant levels 1 to 3 were all drawn in ink and looked
+> identical. The client asked for five distinguishable levels reading novice to advanced, so the
+> ramp above replaces that rule.
+>
+> The ramp values are deepened relative to `--ember` and `--hot` deliberately. Those two are accent
+> colours for marks and fills; as *text* on `--paper-deep`, `#F0B429` sits near 1.9:1 and is
+> illegible. Every ramp value clears 3:1, the threshold at this size and weight.
+>
+> `difficultyAccent()` in `src/lib/taxonomy.ts` is the single place this mapping lives. Numeral and
+> level name take the colour; the audience and description stay in ink, since they are prose and
+> want legibility rather than identity.
 
 Type: **Bodoni Moda** or **Playfair Display** for display and headings (matches the wordmark).
 **Jost** or **Archivo** for body, UI, and labels. Eyebrows, buttons, and small caps get

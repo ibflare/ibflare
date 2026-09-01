@@ -80,12 +80,17 @@ export const TOPICS = [
 export type Topic = (typeof TOPICS)[number];
 
 /**
- * Accent rule from CLAUDE.md §8: ember is reserved for difficulty 4–5 markers
- * (and focus states), hot for difficulty 5 alone. Everything below 4 is drawn
- * in ink. Keep this the single place that decision lives.
+ * The colour for a difficulty level. CLAUDE.md §8.
+ *
+ * One hue per level, cool to hot, so the ladder reads as novice to advanced
+ * without relying on the numbers. This replaced an earlier rule that reserved
+ * the accents for levels 4 and 5 and drew everything below in ink, which left
+ * Spark, Ember and Blaze looking identical.
+ *
+ * Keep this the single place that decision lives; the tokens are defined in
+ * globals.css.
  */
 export function difficultyAccent(level: number): string {
-  if (level >= 5) return "var(--color-hot)";
-  if (level >= 4) return "var(--color-ember)";
-  return "var(--color-ink)";
+  const clamped = Math.min(Math.max(Math.round(level), 1), 5);
+  return `var(--color-level-${clamped})`;
 }

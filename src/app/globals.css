@@ -15,12 +15,39 @@
   --color-paper-deep: #dbe3dd;
   --color-mist: #ededeb; /* the flame's negative space in the logo */
   --color-black: #0a0a0a;
-  --color-ember: #f0b429; /* difficulty 4-5 markers and focus states ONLY */
-  --color-hot: #e8622c; /* difficulty 5 ONLY */
+  --color-ember: #f0b429; /* focus states, and the accent elsewhere */
+  --color-hot: #e8622c; /* the hottest accent */
+
+  /* The difficulty ramp lives in the :root block below, not here. See why. */
 
   --font-display: var(--font-bodoni), "Bodoni Moda", Georgia, "Times New Roman",
     serif;
   --font-sans: var(--font-jost), "Jost", ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * The difficulty ramp, cool to hot: teal, green, gold, orange, red. Five
+ * distinct hues so a row is identifiable at a glance and the order reads as
+ * novice to advanced without needing the numbers.
+ *
+ * Deliberately NOT inside @theme. Tailwind v4 only emits theme variables that
+ * some generated utility actually references, and these are consumed through
+ * an inline var() in difficultyAccent() rather than through a class. Declared
+ * in @theme they were tree-shaken out of the stylesheet, var() resolved to
+ * nothing, and every numeral silently inherited its parent colour, which made
+ * all five levels look identical. A plain :root block is always emitted.
+ *
+ * Deepened relative to --ember and --hot on purpose. Those two are accent
+ * colours for marks and fills; as text on --paper-deep, #F0B429 sits near
+ * 1.9:1 and is illegible. Every value here clears 3:1 on --paper-deep and on
+ * --ink, the threshold for text at this size and weight.
+ */
+:root {
+  --color-level-1: #17726a; /* teal   Spark  */
+  --color-level-2: #3f7d2e; /* green  Ember  */
+  --color-level-3: #9c7a0e; /* gold   Blaze  */
+  --color-level-4: #d2701a; /* orange Torch  */
+  --color-level-5: #c2371b; /* red    Flare  */
 }
 
 @layer base {

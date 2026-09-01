@@ -87,12 +87,13 @@ export default function HomePage() {
             stretch would size this cell to the full row height, leaving it
             nowhere to travel, and sticky would appear to do nothing.
 
-            top-24 clears the 4rem sticky header with room to spare. Only from
-            lg up: below that the layout is stacked and there is no taller
-            neighbour to scroll against.
+            The header is 4rem, so top-32 leaves 4rem of clear space beneath
+            it when pinned. top-24 left only 2rem, which read as the heading
+            touching the nav. Only from lg up: below that the layout is stacked
+            and there is no taller neighbour to scroll against.
           */}
           <div className="grid gap-14 lg:grid-cols-[1fr_1.15fr] lg:items-start lg:gap-20">
-            <div className="lg:sticky lg:top-24">
+            <div className="lg:sticky lg:top-32">
               <h2 className="font-display text-3xl leading-tight font-medium text-balance sm:text-4xl">
                 We publish what we learn.
               </h2>
@@ -149,16 +150,21 @@ export default function HomePage() {
                 key={level.level}
                 className="grid gap-x-8 gap-y-3 bg-paper-deep px-6 py-7 sm:grid-cols-[auto_1fr_1.4fr] sm:items-baseline sm:px-8"
               >
-                <div className="flex items-baseline gap-4">
-                  {/*
-                    The numeral is real content, not decoration. The list has
-                    no marker, so this is the only place the level number is
-                    announced. Ember/hot colouring per CLAUDE.md §8.
-                  */}
-                  <span
-                    className="font-display text-3xl leading-none font-semibold tabular-nums"
-                    style={{ color: difficultyAccent(level.level) }}
-                  >
+                {/*
+                  Numeral and name share the level's colour, so each row is
+                  distinguishable at a glance rather than only by reading the
+                  number. The audience and description stay in ink: they are
+                  prose and want maximum legibility, not identity.
+
+                  The numeral is real content, not decoration. The list has no
+                  marker, so this is the only place the level number is
+                  announced.
+                */}
+                <div
+                  className="flex items-baseline gap-4"
+                  style={{ color: difficultyAccent(level.level) }}
+                >
+                  <span className="font-display text-3xl leading-none font-semibold tabular-nums">
                     {level.level}
                   </span>
                   <span className="font-display text-2xl leading-none font-medium">

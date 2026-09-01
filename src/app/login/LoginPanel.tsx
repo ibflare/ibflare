@@ -51,8 +51,10 @@ export function LoginPanel({
 
   return (
     <div className="w-full max-w-sm">
+      {/* Tracks the mode: the heading was still saying "Sign in" over a form
+          whose button said "Create account". */}
       <h1 className="font-display text-4xl leading-tight font-medium">
-        Sign in
+        {mode === "signin" ? "Sign in" : "Create an account"}
       </h1>
 
       {error && (
