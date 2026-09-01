@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bodoni_Moda, Jost } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/SiteHeader";
+import { ConditionalHeader } from "@/components/ConditionalHeader";
 import { ConditionalFooter } from "@/components/ConditionalFooter";
 
 // Didone display face, matching the wordmark. CLAUDE.md §8.
@@ -42,7 +43,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${bodoni.variable} ${jost.variable} h-full antialiased`}
     >
       <body>
-        <SiteHeader />
+        <ConditionalHeader>
+          <SiteHeader />
+        </ConditionalHeader>
         {/*
           Not flex-1. That stretched main to fill exactly the space left in the
           viewport, which parked the footer at the bottom of the screen and made

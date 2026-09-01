@@ -192,6 +192,23 @@
   }
 
   /*
+   * Scrim for the sign-in page's video panel.
+   *
+   * Vertical rather than the hero's horizontal weighting, because the content
+   * here sits at the top and bottom edges: the lockup above, the line of copy
+   * below. Both ends are held dark enough to read against; the middle is let
+   * up so the footage is actually visible instead of being a dark rectangle.
+   */
+  .panel-scrim {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-ink) 92%, transparent) 0%,
+      color-mix(in srgb, var(--color-ink) 68%, transparent) 45%,
+      color-mix(in srgb, var(--color-ink) 94%, transparent) 100%
+    );
+  }
+
+  /*
    * The tracked-out label style from the logo's tagline lockup.
    * Eyebrows, buttons, and small caps. CLAUDE.md §8.
    */

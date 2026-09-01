@@ -1,8 +1,8 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LoginPanel } from "./LoginPanel";
-import { DIFFICULTY_LEVELS, difficultyAccent } from "@/lib/taxonomy";
 
 export const metadata = {
   title: "Sign in",
@@ -32,54 +32,71 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   }
 
   return (
-    /*
-     * Two panels from lg up. The form alone left most of the page empty, which
-     * is a lot of nothing to sign in against.
-     *
-     * The left panel carries the mark and the ladder rather than sales copy:
-     * the five level names are what the site is, and they are useful to see
-     * before you have an account. Hidden below lg, where the form fills the
-     * screen on its own.
-     */
-    <div className="grid min-h-[calc(100vh-4rem)] lg:grid-cols-[1.1fr_1fr]">
-      <div className="hidden flex-col justify-between bg-ink px-12 py-16 text-mist lg:flex xl:px-16">
-        <div>
+    // min-h-screen, not viewport-less-header: this page has no header.
+    <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+      {/*
+        The landing page's hero footage, reused. Same file, so it is already
+        cached for anyone arriving from the landing page and costs no new
+        asset. Decorative: muted, looping, aria-hidden and untabbable, since it
+        says nothing a screen reader needs.
+
+        Over it, the full lockup and one line of copy taken from the landing
+        page. Nothing else. This is a sign-in page, not a pitch.
+      */}
+      <div className="relative isolate hidden flex-col justify-between overflow-hidden bg-ink px-12 py-14 text-mist lg:flex xl:px-16 xl:py-16">
+        <video
+          className="absolute inset-0 -z-20 size-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster="/images/hero-poster.jpg"
+          aria-hidden
+          tabIndex={-1}
+        >
+          <source src="/videos/hero.mp4" type="video/mp4" />
+        </video>
+        <div className="panel-scrim absolute inset-0 -z-10" aria-hidden />
+
+        <Link href="/" aria-label="FLARE, home" className="block max-w-md">
           <Image
-            src="/images/FLARE_WORDMARK_MIST.png"
+            src="/images/FLARE_LOGO_MIST.png"
+            alt="FLARE, Financial Literacy Advancement for RGV Equity"
+            width={2172}
+            height={724}
+            priority
+            className="w-full"
+          />
+        </Link>
+
+        <p className="font-display max-w-md text-3xl leading-tight font-medium text-balance">
+          Answer a question once, and the next person doesn&rsquo;t have to
+          start from nothing.
+        </p>
+
+        <p className="label text-mist/40">FLARE at Lamar Academy</p>
+      </div>
+
+      <div className="flex flex-col justify-center px-6 py-14">
+        {/* The only way home once the left panel is hidden and the nav is gone. */}
+        <Link
+          href="/"
+          aria-label="FLARE, home"
+          className="mb-12 block w-fit lg:hidden"
+        >
+          <Image
+            src="/images/FLARE_WORDMARK.png"
             alt="FLARE"
             width={1993}
             height={517}
-            className="h-10 w-auto"
+            className="h-7 w-auto"
           />
-          <p className="label mt-5 text-mist/55">
-            Financial Literacy Advancement for RGV Equity
-          </p>
+        </Link>
+
+        <div className="flex flex-1 items-center lg:flex-none">
+          <LoginPanel next={next} error={error} />
         </div>
-
-        <ul className="space-y-5">
-          {DIFFICULTY_LEVELS.map((level) => (
-            <li key={level.level} className="flex items-baseline gap-4">
-              <span
-                className="font-display w-5 text-2xl leading-none font-semibold tabular-nums"
-                style={{ color: difficultyAccent(level.level) }}
-              >
-                {level.level}
-              </span>
-              <span className="font-display text-xl leading-none font-medium">
-                {level.name}
-              </span>
-              <span className="label text-mist/40">{level.audience}</span>
-            </li>
-          ))}
-        </ul>
-
-        <p className="max-w-sm text-sm leading-relaxed text-mist/60">
-          A student-run video library at Lamar Academy.
-        </p>
-      </div>
-
-      <div className="flex items-center justify-center px-6 py-16">
-        <LoginPanel next={next} error={error} />
       </div>
     </div>
   );

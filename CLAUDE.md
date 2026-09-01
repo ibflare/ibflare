@@ -434,10 +434,18 @@ No bulk actions, no CSV import, no inline table editing. One person at a time, o
 Middleware: unauthenticated users hitting `/dashboard/*` go to `/login`. Signed-in users with
 `onboarded = false` are redirected to `/onboarding` from everywhere except `/onboarding`.
 
-`/login`, `/onboarding`, `/auth/*`, and `/account-unavailable` render without the footer. It is a
+`/login`, `/onboarding`, `/auth/*`, and `/account-unavailable` render without the footer: it is a
 site-wide navigation surface, and three columns of links plus a liability notice under a form asking
-for a date of birth is noise. They keep the header, so the wordmark and a way out are still there.
-The list is in `ConditionalFooter`.
+for a date of birth is noise. The list is in `ConditionalFooter`.
+
+`/login` additionally has no header, being one task with one exit. The list is in
+`ConditionalHeader`, which takes `SiteHeader` as children because that component is an async server
+component and cannot read the pathname itself. A route group with its own bare layout is the cleaner
+structure and would also remove the `4rem` header assumption baked into the root layout's `main`
+height; worth doing if either list grows.
+
+Because the header carries the only way home, any page that drops it has to provide one. `/login`
+puts the lockup in its left panel above `lg`, and a wordmark above the form below it.
 
 > **The file is `src/proxy.ts`, not `middleware.ts`.** Next 16 deprecated the `middleware` file
 > convention and renamed it to `proxy`; the export is `proxy`, and `middleware.ts` is silently
