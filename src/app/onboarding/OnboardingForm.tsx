@@ -142,18 +142,19 @@ export function OnboardingForm({
           <Field
             name="school"
             label="School"
-            hint="Optional."
             defaultValue={v.school}
             error={state.errors.school}
+            required
             maxLength={120}
           />
 
           <Field
             name="city"
             label="City"
-            hint="Optional. City only, never a street address."
+            hint="City only, never a street address."
             defaultValue={v.city}
             error={state.errors.city}
+            required
             maxLength={80}
           />
         </div>

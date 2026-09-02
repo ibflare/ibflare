@@ -345,10 +345,25 @@ RLS on every table. Write `has_capability(cap text)` as a `SECURITY DEFINER` fun
 > **Gotcha:** a policy on `profiles` that queries `profiles` to check permissions recurses forever.
 > That's what the definer function is for. Never inline the subquery.
 
-- **profiles** — public view `public_profiles` exposes `id, username, display_name, title,
-  avatar_url, bio, role` to anon. The base table is readable by its owner and by `can_manage_users`
-  holders only. Users update their own row but **cannot** touch `role`, `title`, or any capability
-  flag; those go through a definer function that checks `can_manage_users` and writes `audit_log`.
+- **profiles** — view `public_profiles` exposes `id, username, display_name, title, avatar_url, bio,
+  role`. The base table is readable by its owner and by `can_manage_users` holders only. Users
+  update their own row but **cannot** touch `role`, `title`, or any capability flag; those go
+  through a definer function that checks `can_manage_users` and writes `audit_log`.
+
+> **Changed after phase 2. The view is granted to `authenticated` only, not to anon.** It originally
+> read "exposes ... to anon", and that was the hole: the anon key ships to every browser by design,
+> so gating `/u/[username]` in the proxy protected the page while leaving every username, display
+> name, title, bio and avatar URL readable by anyone who asked PostgREST directly. No private column
+> ever leaked, since `grade`, `city` and `school` are absent from the view by construction, but the
+> reason for gating profiles was to keep contributor names off the open web, and the gate alone did
+> not achieve that. Revoked in `20260902000000`.
+>
+> **This grant and `REQUIRE_ACCOUNT_TO_VIEW` now have to move together.** The view is
+> `security_invoker = false`, so it bypasses RLS on the base table and the grant is the only thing
+> guarding it: there is no policy to also adjust. Turning the gate off without restoring
+> `grant select on public.public_profiles to anon` leaves `/u/[username]` returning nothing for
+> signed-out visitors, because the server client falls back to the anon role when there is no
+> session. Both directions are recorded in the migration.
 - **videos** — `status='published' AND deleted_at IS NULL` readable by anon. Insert requires
   `auth.uid() = owner_id AND can_post`. Update/delete for the owner or `can_moderate`.
 - **video_collaborators** — readable when the parent video is public, or by owner/invitee. Insert by
@@ -399,6 +414,10 @@ profile. Hiding a button is not enforcement. Likewise, the comments insert polic
 > **The privacy policy and the viewing gate have to move together.** Its "who can see what" table
 > now says "Anyone with an account" for both profile fields and published content, which is true
 > only while `REQUIRE_ACCOUNT_TO_VIEW` is set. Flip that constant and both rows become wrong.
+>
+> As of `20260902000000` the profile row is true of the data as well as of the routing: anon lost
+> SELECT on `public_profiles`, so "anyone with an account" is now the literal grant. Before that it
+> described the door and not the data. See section 6.
 >
 > The profile row was corrected, and the date bumped to 30 August, when `/u/[username]` moved behind
 > sign-in. **The prose elsewhere in both documents still says "public"** in several places: "Username
@@ -604,8 +623,15 @@ Most users are minors. Hard constraints, not preferences.
 
    **This is provisional.** It is a placeholder until the club and the faculty sponsor decide what
    they actually want, and it is expected to be reversed. The gate is a single constant,
-   `REQUIRE_ACCOUNT_TO_VIEW` in `src/proxy.ts`: set it to false and the library is public again with
-   no other change. No page component contains an auth check of its own, deliberately.
+   `REQUIRE_ACCOUNT_TO_VIEW` in `src/proxy.ts`, and no page component contains an auth check of its
+   own, deliberately.
+
+   **It is no longer a one-line reversal, and that is deliberate too.** This paragraph used to say
+   "set it to false and the library is public again with no other change". That was true of the
+   routing and false of the data: `public_profiles` was granted to anon, so profile data was
+   readable without an account whatever the constant said. Since `20260902000000` the grant matches
+   the gate, which means turning the gate off now takes two edits, the constant and
+   `grant select on public.public_profiles to anon`. Section 6 records both.
 
    Open question for that discussion, which the code does not answer: should watching require an
    account at all? Gating a free financial literacy library for a public school district is a real
@@ -653,8 +679,11 @@ list, which phase 3 reads).
 
 Outstanding, to be cleared as later phases land:
 
-- The header, footer, and CTAs link to `/library`, `/contribute`, and `/login`, which do not exist
-  yet. They 404 until phases 2 and 3.
+- The header, footer, and CTAs link to `/library`, `/contribute`, and `/login`. `/login` landed in
+  phase 2 and `/contribute` was built at the phase 2/3 boundary, ahead of its phase, because it is
+  static and has no dependencies: it was the cheapest way to clear the most visible dead link in the
+  nav. `/library` still 404s, or rather redirects to `/login`, since the gate matches the prefix
+  before routing resolves. Phase 3.
 - `/privacy` and `/terms` are linked from the footer and 404. See §7.
 - Officers are not shown anywhere. If they should return to the landing page, read them from
   `profiles` in phase 2 rather than reinstating a placeholder file.
@@ -674,14 +703,19 @@ Verified rather than assumed, by probing the project directly:
 | Google enabled | yes |
 | anon reads base `profiles` | `401` |
 | anon reads `audit_log` | `401` |
-| anon reads `public_profiles` | `200` |
+| anon reads `public_profiles` | `200` at the time. Now `401`, see below |
 | anon selects `grade` from the view | `42703 column does not exist` |
 | `/dashboard` while signed out | redirects to `/login?next=/dashboard` |
 | `/u/<unknown>` | `404` |
 | Google handoff | correct `redirect_uri`, `scope=email profile` |
 
 That `42703` is the point of the view: the private columns are not merely unrendered, they are
-absent from the only profile surface anon can reach.
+absent from the profile surface, rather than present and unrendered. That still holds for
+`authenticated`, which is now the only role that can read the view at all.
+
+The `200` on the fifth row was recorded as correct and later judged to be the phase 2 audit's
+first finding. It is now `401`, and the note in section 6 explains why the row is left here rather
+than quietly corrected: the check was right, the expectation was wrong.
 
 Migrations are applied with `supabase db push` against a CLI-linked project.
 
@@ -718,6 +752,42 @@ Decisions worth knowing:
   destination from the account": onboarded users go to their profile, everyone else to
   `/onboarding`. An explicit `next` still wins, and is rejected unless it is a same-site path, so
   the parameter cannot be used as an open redirect.
+
+### Phase 2 audit, and what it changed
+
+An audit at the phase 2/3 boundary drove `20260902000000_close_profile_findings.sql`. Three findings,
+one theme: each was a rule the application enforced and the database did not.
+
+- **`public_profiles` was granted to anon.** Covered in section 6 and section 9.4. The proxy gated
+  the page; the grant left the data open.
+- **The reserved username list lived only in the server action**, so a test account was renamed to
+  `flare` straight through PostgREST. It is now `is_reserved_username()` in the database, backing a
+  check constraint on the column, and `src/app/onboarding/actions.ts` calls that function instead of
+  keeping a second copy of the list. Two consequences worth knowing:
+  - **The signup trigger consults the same function.** It derives a username from the email
+    local-part, so without this an address like `admin@lamaracademy.org` would derive `admin`, fail
+    the constraint, and roll back the `auth.users` insert that fired the trigger. That is signup
+    failing outright for that person. Reserved candidates get a numeric suffix, exactly like a
+    collision.
+  - **Exact matches only.** Substring matching would reject the club's own `ibflare` account and
+    every real name containing a reserved word. Same trade section 4 makes for the comment filter.
+  - Editing the list changes the constraint without revalidating existing rows. Adding a name does
+    not rename whoever already holds it.
+- **`onboarded` implied the consent stamps and nothing else**, so `attest_age` then `accept_terms`
+  then `PATCH onboarded=true` produced an onboarded account with a null `grade`. Phase 3 will read
+  `onboarded` as meaning the profile is complete, so
+  `profiles_onboarded_requires_profile` now requires `grade`, `city` and `school` to be present and
+  non-blank. It is a second constraint rather than an edit to
+  `profiles_onboarded_requires_consent`, so a violation says which half is missing.
+
+> **`city` and `school` became required fields, which is a change in what we collect from minors.**
+> They were optional in the onboarding form and are now mandatory, because the constraint above
+> cannot be satisfied without them. Both are still private under rule 9.1, still city-only under
+> rule 9.3, and the completeness requirement is what phase 3 wanted. But the honest description is
+> that FLARE now requires two more pieces of information from every student before they can use the
+> site, where before it asked. If that is the wrong trade, the lever is the constraint, not the
+> form: drop `city` and `school` from `profiles_onboarded_requires_profile` and make the fields
+> optional again in the same commit.
 
 ### Media assets
 

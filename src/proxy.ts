@@ -16,11 +16,22 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Whether watching requires an account.
  *
- * This is the whole viewing gate. Set it to false and the library and every
- * video page are public again; nothing else needs touching, and no page
- * component contains an auth check of its own. It is written this way because
- * the decision is provisional: it is expected to be revisited once the club
- * and the faculty sponsor have discussed it. See CLAUDE.md section 9.4.
+ * This is the routing half of the viewing gate. Set it to false and the library
+ * and every video page are public again, and no page component contains an auth
+ * check of its own. It is written this way because the decision is provisional:
+ * it is expected to be revisited once the club and the faculty sponsor have
+ * discussed it. See CLAUDE.md section 9.4.
+ *
+ * The other half is a database grant, and turning the gate off means changing
+ * both. public_profiles is granted to authenticated only, so a signed-out
+ * visitor reaching /u/[username] would find nothing there even with this
+ * constant false. Restore it alongside:
+ *
+ *     grant select on public.public_profiles to anon;
+ *
+ * That is the fix for an audit finding rather than an oversight: while the
+ * grant was open to anon, this constant gated the page and left the data
+ * readable by anyone holding the anon key, which is every visitor.
  *
  * Note what it costs while true: an under-13 visitor cannot pass the age
  * screen, so gating viewing behind an account shuts them out of the site

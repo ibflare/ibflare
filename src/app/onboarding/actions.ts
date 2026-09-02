@@ -30,18 +30,16 @@ export type OnboardingState = {
   };
 };
 
-/**
- * Names that would collide with a route or let someone pose as the club.
- * /u/[username] shares a namespace with nothing today, but "flare" and
- * "admin" are impersonation risks regardless of routing.
+/*
+ * The reserved username list is not here.
+ *
+ * It used to be, as a Set in this file, which meant it was enforced by this
+ * one code path and nowhere else: a test account was renamed to "flare"
+ * straight through the API. It now lives in the database as
+ * is_reserved_username(), backing a check constraint on the column, and this
+ * action calls that same function rather than keeping a second copy in step
+ * with it. See 20260902000000_close_profile_findings.sql.
  */
-const RESERVED_USERNAMES = new Set([
-  "admin", "administrator", "flare", "flare_official", "official", "moderator",
-  "mod", "sponsor", "officer", "staff", "support", "help", "root", "system",
-  "api", "auth", "login", "logout", "signin", "signup", "onboarding",
-  "dashboard", "library", "contribute", "privacy", "terms", "suspended",
-  "settings", "account", "profile", "u", "v", "me", "null", "undefined",
-]);
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
@@ -71,11 +69,11 @@ export async function completeOnboarding(
     errors.birth = "Choose a month and a year.";
   }
 
+  // Reserved names are checked further down, against the database. Format is
+  // all that can be judged without a round trip.
   if (!USERNAME_PATTERN.test(values.username)) {
     errors.username =
       "Use 3 to 20 characters: lowercase letters, numbers, and underscores.";
-  } else if (RESERVED_USERNAMES.has(values.username)) {
-    errors.username = "That username is reserved. Pick another one.";
   }
 
   if (values.display_name.length < 1 || values.display_name.length > 60) {
@@ -86,11 +84,18 @@ export async function completeOnboarding(
     errors.grade = "Choose one of the options.";
   }
 
-  if (values.school.length > 120) {
+  // Required, not optional. profiles_onboarded_requires_profile refuses to mark
+  // an account onboarded without all three of grade, school and city, so a
+  // blank here would fail at the last write with nothing useful to show.
+  if (!values.school) {
+    errors.school = "Enter your school.";
+  } else if (values.school.length > 120) {
     errors.school = "That is too long. Keep it under 120 characters.";
   }
 
-  if (values.city.length > 80) {
+  if (!values.city) {
+    errors.city = "Enter your city.";
+  } else if (values.city.length > 80) {
     errors.city = "That is too long. Keep it under 80 characters.";
   }
 
@@ -144,12 +149,43 @@ export async function completeOnboarding(
     redirect("/account-unavailable");
   }
 
+  /*
+   * Deliberately after the age check, not up with the rest of the validation.
+   *
+   * This is the first thing in the action that sends a typed field anywhere,
+   * and an under-13 has been deleted and redirected by the line above before
+   * it runs. So their chosen name never reaches the database either, on the
+   * same principle as the profile write below.
+   *
+   * is_reserved_username() is the function the check constraint on the column
+   * calls, so a name that passes here cannot fail that constraint later. The
+   * list is not duplicated in this file.
+   */
+  const { data: reserved, error: reservedError } = await supabase.rpc(
+    "is_reserved_username",
+    { u: values.username },
+  );
+
+  if (reservedError) {
+    return {
+      errors: { form: `We could not save that: ${reservedError.message}` },
+      values,
+    };
+  }
+
+  if (reserved) {
+    return {
+      errors: { username: "That username is reserved. Pick another one." },
+      values,
+    };
+  }
+
   const fields = {
     username: values.username,
     display_name: values.display_name,
     grade: values.grade,
-    school: values.school || null,
-    city: values.city || null,
+    school: values.school,
+    city: values.city,
   };
 
   const asUsernameError = (code?: string) =>
@@ -172,8 +208,11 @@ export async function completeOnboarding(
    * leaves the account stuck on this page with no error to show. Insert is
    * column-restricted by 20260830010000, so it cannot set a capability flag.
    *
-   * onboarded is not set here: the check constraint requires both consent
-   * stamps first, and one of them is written below.
+   * onboarded is not set here, and cannot be: two check constraints have to be
+   * satisfied first. profiles_onboarded_requires_profile wants grade, school
+   * and city, which this write supplies, and
+   * profiles_onboarded_requires_consent wants both consent stamps, one of
+   * which is written below. The final update is what flips the flag.
    */
   const { data: updated, error: updateError } = await supabase
     .from("profiles")
