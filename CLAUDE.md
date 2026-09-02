@@ -816,6 +816,30 @@ Google OAuth: Google Cloud Console → Credentials → OAuth client (Web) → au
 `https://<project-ref>.supabase.co/auth/v1/callback` → paste client ID and secret into Supabase Auth
 → Providers → Google. Add `http://localhost:3000` to authorized JS origins for local dev.
 
+> **Supabase Auth → URL Configuration is the other half of this, and getting it wrong looks like a
+> code bug.** Two fields, and both matter once the site is deployed:
+>
+> | Field | Value |
+> |---|---|
+> | Site URL | the deployed origin, `https://ibflare.vercel.app` |
+> | Redirect URLs | `https://ibflare.vercel.app/**` and `http://localhost:3000/**` |
+>
+> **Supabase substitutes the Site URL when a `redirectTo` is not in the allowlist. It does not
+> error.** So a `redirectTo` of `<origin>/auth/callback` that is not allowlisted silently becomes
+> the Site URL, and the visitor lands on `/?code=...` with nothing there to exchange the code. If
+> the Site URL is still `http://localhost:3000` while the site is deployed, every signed-in visitor
+> is sent to their own machine, where nothing is listening. That was the state after the first
+> Vercel deploy.
+>
+> Both entries need the `/**` wildcard, because the app appends `?next=` to the callback and an
+> exact-match entry will not cover it. Add the preview wildcard
+> `https://ibflare-*.vercel.app/**` as well if branch deploys need to sign in.
+>
+> `src/proxy.ts` catches a stray `?code=` or `?token_hash=` on any non-`/auth` route and forwards it
+> to the right handler, which covers the case where the fallback lands on the right host but the
+> wrong path. It cannot cover a Site URL pointing at a different host, since the request never
+> reaches the app.
+
 YouTube Data API: same Google Cloud project → enable "YouTube Data API v3" → create an API key →
 restrict it to that API. Free quota is 10,000 units/day; a `videos.list` call costs 1 unit, so
 uploads will never come close.

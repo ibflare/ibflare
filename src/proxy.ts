@@ -65,7 +65,49 @@ const PROTECTED_PREFIXES = REQUIRE_ACCOUNT_TO_VIEW
  */
 const PRE_ONBOARDING_ALLOWED = ["/onboarding", "/auth", "/login"];
 
+/**
+ * An auth code that landed on the wrong route.
+ *
+ * Supabase sends the browser to the project's Site URL when the redirectTo it
+ * was handed is not in the Redirect URLs allowlist. It does not error: it
+ * silently substitutes, so the visitor ends up on / with ?code= still attached
+ * and nothing there to exchange it. The symptom is a signed-out visitor sitting
+ * on the landing page with an auth code in the address bar.
+ *
+ * This hands the code to the route that knows what to do with it, whichever
+ * page it landed on. It is a backstop and not the fix: if the Site URL points
+ * at a different host, the request never reaches this app at all. The allowlist
+ * is the fix, and CLAUDE.md section 11 now records what has to be in it.
+ */
+function strayAuthCode(request: NextRequest): URL | null {
+  const { pathname, searchParams } = request.nextUrl;
+
+  // Everything under /auth already handles every shape of this, and
+  // intercepting those would loop.
+  if (pathname.startsWith("/auth/")) return null;
+
+  const url = request.nextUrl.clone();
+
+  // PKCE, which is what @supabase/ssr uses, and what the default confirmation
+  // email template redirects back with.
+  if (searchParams.has("code")) {
+    url.pathname = "/auth/callback";
+    return url;
+  }
+
+  // The shape a customised template produces. Same failure, same cause.
+  if (searchParams.has("token_hash") && searchParams.has("type")) {
+    url.pathname = "/auth/confirm";
+    return url;
+  }
+
+  return null;
+}
+
 export async function proxy(request: NextRequest) {
+  const stray = strayAuthCode(request);
+  if (stray) return NextResponse.redirect(stray);
+
   // Must be mutated rather than recreated: the Supabase client writes refreshed
   // auth cookies onto this exact response object.
   let response = NextResponse.next({ request });

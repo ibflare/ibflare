@@ -4,9 +4,29 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
-/** Built from the request, so this works on localhost, previews, and prod. */
+/**
+ * Built from the request, so this works on localhost, previews, and prod.
+ *
+ * The localhost fallback used to be the only fallback, which is a bad thing to
+ * hand to Supabase as a redirect target from a deployed site: it sends a real
+ * visitor to their own machine, where nothing is listening. Vercel always sets
+ * host and x-forwarded-proto, so reconstruct from those before giving up.
+ */
 async function siteOrigin() {
-  return (await headers()).get("origin") ?? "http://localhost:3000";
+  const h = await headers();
+
+  const origin = h.get("origin");
+  if (origin) return origin;
+
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  if (host) {
+    const proto =
+      h.get("x-forwarded-proto") ??
+      (host.startsWith("localhost") ? "http" : "https");
+    return `${proto}://${host}`;
+  }
+
+  return "http://localhost:3000";
 }
 
 /** `next` arrives from a query string, so anything off-site is discarded. */
