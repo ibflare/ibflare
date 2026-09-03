@@ -799,7 +799,19 @@ Masters live in `media-src/`, which is gitignored. Only encoded web versions bel
 - Filenames in `public/` must be lowercase. Vercel serves from a case-sensitive filesystem, so
   `HERO.mp4` resolves locally on Windows and 404s in production.
 - Generate a poster frame alongside any background video and set it on the element, so the first
-  paint is not a black rectangle.
+  paint is not a black rectangle. Use frame 0 where the footage does not fade in, so the poster
+  matches the first played frame instead of cutting to a different one. A poster sitting behind a
+  scrim can be encoded well below the video's resolution, since no detail survives the scrim:
+  `signinup-poster.jpg` is 854x480 at quality 62, and 81KB against the frame's 357KB at full size.
+
+There are two background videos. The landing page uses `hero.mp4`; `/login` uses `signinup.mp4`,
+which is its own footage rather than the hero reused, so it is a second download rather than a
+cache hit.
+
+> **`signinup.mp4` has not been through the encode recipe above.** It is 11.5MB against `hero.mp4`'s
+> 4.9MB, is 25fps rather than 24, and still carries an AAC audio track that can never play because
+> the element is muted. Re-encoding it to 1080p, no audio, CRF 32, `+faststart` should put it near
+> 4MB. Outstanding.
 
 ---
 
