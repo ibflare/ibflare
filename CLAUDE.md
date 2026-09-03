@@ -138,11 +138,22 @@ in step.
 
 | Level | Name | Audience | Assumes |
 |---|---|---|---|
-| 1 | Spark | Ages 13–14 | Assumes nothing. What a paycheck is, what a bank does with your money |
-| 2 | Ember | Ages 14–16 | You have a job or you're about to. Pay stubs, simple tax returns, how credit works |
-| 3 | Blaze | Ages 16–18 | You have money to make decisions about. Index funds, 1099 work, FAFSA and student loans |
-| 4 | Torch | 18 and up | College level. Macroeconomic policy, company filings, valuation |
-| 5 | Flare | College and up | A single question examined in depth. Assumes coursework in economics or finance |
+| 1 | Spark | Ages 13–14 | Assumes nothing. What a paycheck is, what a bank does with your money. |
+| 2 | Ember | Ages 14–16 | Assumes a first job. Pay stubs, a simple return, how credit is scored. |
+| 3 | Blaze | Ages 16–18 | Assumes earned income. Index funds, 1099 work, student loans, and aid. |
+| 4 | Torch | 18 and up | Assumes introductory coursework. Monetary policy, filings, valuations. |
+| 5 | Flare | College and up | Assumes study in the field. One narrow question, examined at length. |
+
+> **Revised 3 September**, on the client's instruction, to the wording above. Levels 2 to 5 were
+> previously phrased as statements about the reader ("You have a job or you're about to", "College
+> level"); they now all open on what the level assumes, which is what the column is actually
+> sorting by. Level 1 was already in that form and is unchanged.
+>
+> **The age brackets were explicitly kept as they are.** Level 1's "Ages 13–14" was set to 13 rather
+> than 11 because an account was required to watch and the age screen blocks under-13 signups, so
+> nobody younger could reach it. Viewing is public now, so a 12-year-old can watch Spark and the
+> bracket no longer describes an access rule. The client's decision was to keep it, and it reads as
+> what the level is pitched at, which is what the column means for every other row.
 
 Topics (enum): `taxes`, `banking`, `credit`, `investing`, `career`, `macro`, `micro`, `corporate`.
 
@@ -397,7 +408,7 @@ profile. Hiding a button is not enforcement. Likewise, the comments insert polic
 /v/[id]                 Video page. Embed, byline with collaborators, comments
 /u/[username]           Public profile. Name, title, bio, their videos. No grade/city/school
 /contribute             How to upload to YouTube and post here
-/login                  Google sign-in, nothing else
+/login                  Sign in or create an account: Google, or email and password
 /onboarding             First run: username, display name, grade, school, city
 /dashboard              Own videos, drafts, pending collaboration invites
 /dashboard/upload       Gated on can_post
@@ -706,10 +717,13 @@ they can be deleted before launch.
 
 ### Phase 1 status
 
-Done and running locally; **not yet deployed to Vercel**. Built: brand tokens and fonts,
+Done, and deployed to Vercel at **https://ibflare.vercel.app**. Built: brand tokens and fonts,
 `SiteHeader`, `SiteFooter`, a branded 404, the landing page (hero over background video, what FLARE
-does, the five-level ladder, CTA band), and `src/lib/taxonomy.ts` (the difficulty scale and topic
-list, which phase 3 reads).
+does, the five-level ladder), and `src/lib/taxonomy.ts` (the difficulty scale and topic list, which
+phase 3 reads).
+
+The CTA band this section used to list was removed in `75aac97`. The landing page ends on the
+ladder.
 
 Outstanding, to be cleared as later phases land:
 

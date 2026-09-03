@@ -10,8 +10,16 @@ export const DIFFICULTY_LEVELS = [
   {
     level: 1,
     name: "Spark",
-    // 13, not 11: an account is required to watch and the age screen blocks
-    // under-13 signups, so nobody younger can reach this level. Section 9.4.
+    /*
+     * The bracket originally read 13 rather than 11 because an account was
+     * required to watch and the age screen blocks under-13 signups, so nobody
+     * younger could reach this level. That gate is gone: viewing is public as
+     * of 20260903000000, and a 12-year-old can watch Spark.
+     *
+     * The label is kept anyway, on the client's instruction. It is copy deck
+     * wording, and it now describes who the level is pitched at rather than
+     * who is allowed in, which is what the whole column means everywhere else.
+     */
     audience: "Ages 13–14",
     assumes:
       "Assumes nothing. What a paycheck is, what a bank does with your money.",
@@ -21,27 +29,27 @@ export const DIFFICULTY_LEVELS = [
     name: "Ember",
     audience: "Ages 14–16",
     assumes:
-      "You have a job or you're about to. Pay stubs, simple tax returns, how credit works.",
+      "Assumes a first job. Pay stubs, a simple return, how credit is scored.",
   },
   {
     level: 3,
     name: "Blaze",
     audience: "Ages 16–18",
     assumes:
-      "You have money to make decisions about. Index funds, 1099 work, FAFSA and student loans.",
+      "Assumes earned income. Index funds, 1099 work, student loans, and aid.",
   },
   {
     level: 4,
     name: "Torch",
     audience: "18 and up",
-    assumes: "College level. Macroeconomic policy, company filings, valuation.",
+    assumes:
+      "Assumes introductory coursework. Monetary policy, filings, valuations.",
   },
   {
     level: 5,
     name: "Flare",
     audience: "College and up",
-    assumes:
-      "A single question examined in depth. Assumes coursework in economics or finance.",
+    assumes: "Assumes study in the field. One narrow question, examined at length.",
   },
 ] as const;
 
