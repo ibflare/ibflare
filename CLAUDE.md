@@ -851,20 +851,35 @@ current files are built from the same client-supplied 180x180 artwork.
 
 | File | Covers |
 |---|---|
-| `src/app/apple-icon.png` | 180x180, iOS home screen. Opaque RGB, which iOS requires: it flattens a transparent icon onto black |
-| `src/app/favicon.ico` | 16, 32 and 48 packed. Tabs, legacy, the bare `/favicon.ico` request, and Google's "multiple of 48px square" rule |
+| `src/app/apple-icon.png` | 180x180, iOS home screen. The client's file unmodified. Opaque RGB, which iOS requires: it flattens a transparent icon onto black, and it applies its own rounding, so do not round this one |
+| `src/app/favicon.ico` | 16, 32 and 48 packed, corners rounded. Tabs, legacy, the bare `/favicon.ico` request, and Google's "multiple of 48px square" rule |
+
+**The favicon's corners are rounded at 20%, with transparency outside the curve.** A hard white
+square reads as harsh against a dark tab strip. Transparency is fine here, unlike the Apple icon.
+
+Two things about how it is generated, both of which matter if it is ever rebuilt:
+
+- **Each size is masked at 8x and then reduced.** A 3px radius drawn directly at 16px is a
+  staircase rather than a curve.
+- **The inset varies by size: 0.90 at 16, 0.84 at 32, 0.80 at 48.** A fixed inset spends the same
+  *fraction* on empty border at every size, and at 16px a 20% border is 3 of 16 pixels bought with
+  the pixels that were making the F legible. Smaller tiles get a larger mark.
+
+Still true, and not fixable by resampling: **at 16px the flame and the dollar sign collapse into
+noise.** The small entries want a simplified drawing, the F alone or the flame alone. A favicon at
+16px is a different piece of artwork, not the same one shrunk.
+
+> **The artwork entering a corner box does not mean a rounded mask clips it.** The source runs to
+> within 2px of the bottom edge, and a coarse "is there ink in the corner square" check said three
+> of four corners would clip. Testing it properly, by applying a real 22% rounded mask and counting
+> the dark pixels it actually removes, gives zero: the ink sits inside the curve. That is why
+> `apple-icon.png` is the client's file untouched rather than an inset version of it. At a harsher
+> 30% radius it loses 6 pixels, which is nothing.
 
 Still missing: `icon.svg`, and `icon-192`/`icon-512`/a maskable variant in `public/icons/` with a
 `src/app/manifest.ts` to reference them. Without a manifest the Android and PWA sizes do nothing,
 and Android crops to the launcher's shape, so a maskable variant needs its artwork inside the
 centre 80% circle.
-
-Two known compromises in the current icons, both inherited from the source artwork:
-- **It runs to the top and right edges with no inset.** iOS rounds at roughly a 22% radius, so
-  those edges clip.
-- **The 16 and 32 entries are downscales, and at 16 the flame and the dollar sign collapse into
-  noise.** The small sizes want a simplified drawing rather than the same one shrunk. This is
-  normal: a favicon at 16px is a different piece of artwork, not the same one smaller.
 
 ### Link previews
 

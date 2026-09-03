@@ -67,13 +67,28 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <div className="panel-scrim absolute inset-0 -z-10" aria-hidden />
 
         <Link href="/" aria-label="FLARE, home" className="block max-w-md">
+          {/*
+            Pulled left by 4.1% so the F lines up with the quote and the
+            footer line below it, rather than sitting a step to their right.
+
+            That 4.1% is measured, not guessed: the leftmost pixel of the F is
+            89px into a 2172px-wide file, so the lockup carries its own
+            transparent margin and the image box is wider than the artwork.
+            The tagline's rule starts at 86px, near enough the same column that
+            aligning the F does not leave the rule poking out.
+
+            A transform rather than a negative margin because percentages in a
+            transform resolve against the element's own width, so this stays
+            correct at any rendered size. A percentage margin would resolve
+            against the panel instead and over-shift badly.
+          */}
           <Image
             src="/images/FLARE_LOGO_MIST.png"
             alt="FLARE, Financial Literacy Advancement for RGV Equity"
             width={2172}
             height={724}
             priority
-            className="w-full"
+            className="w-full -translate-x-[4.1%]"
           />
         </Link>
 
