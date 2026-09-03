@@ -14,9 +14,12 @@ const MAIL = "mailto:ibflarergv@gmail.com";
 
 export default function PrivacyPage() {
   return (
-    // Date bumped when profile pages moved behind sign-in. The policy's own
-    // Changes section says a change to who can see what gets a new date.
-    <LegalPage title="Privacy Policy" updated="August 30, 2026">
+    // Date bumped when viewing stopped requiring an account, which moved both
+    // rows of the "who can see what" table from "anyone with an account" to
+    // anyone at all. The policy's own Changes section says a change to who can
+    // see what gets a new date. The previous bump was 30 August, when profile
+    // pages briefly moved behind sign-in.
+    <LegalPage title="Privacy Policy" updated="September 3, 2026">
       <p>
         FLARE (Financial Literacy Advancement for RGV Equity) is a student
         organization at Lamar Academy in McAllen, Texas. This policy explains
@@ -148,11 +151,11 @@ export default function PrivacyPage() {
           <tbody>
             <tr>
               <td>Username, display name, title, bio, profile picture</td>
-              <td>Anyone with an account</td>
+              <td>Anyone, including people without an account</td>
             </tr>
             <tr>
               <td>Videos you publish and comments you post</td>
-              <td>Anyone with an account</td>
+              <td>Anyone, including people without an account</td>
             </tr>
             <tr>
               <td>Email address</td>

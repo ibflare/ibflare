@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/auth/actions";
 import { HeaderAuthControl } from "./HeaderAuthControl";
+import { MobileNav } from "./MobileNav";
 
 /**
  * The header uses FLARE_WORDMARK.png, the full lockup cropped to just the
@@ -10,11 +11,14 @@ import { HeaderAuthControl } from "./HeaderAuthControl";
  * in the full logo is ~25px tall in a 724px-tall file, so at header height it
  * renders as illegible mush. The full lockup belongs somewhere it has room.
  */
+/**
+ * Both links show in both navs now. They used to carry a `mobile` flag,
+ * because the narrow header had room for one and /contribute was the one that
+ * yielded. The panel in MobileNav has room for everything, so the flag went.
+ */
 const NAV = [
-  { href: "/library", label: "Library", mobile: true },
-  // Reachable from the CTA band and the footer, so it yields first on narrow
-  // screens rather than crowding the sign-in control.
-  { href: "/contribute", label: "Contribute", mobile: false },
+  { href: "/library", label: "Library" },
+  { href: "/contribute", label: "Contribute" },
 ];
 
 export async function SiteHeader() {
@@ -35,8 +39,18 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/85 backdrop-blur-sm">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:gap-6 sm:px-6">
-        <Link href="/" aria-label="FLARE, home" className="shrink-0">
+      <div className="relative mx-auto flex h-16 max-w-6xl items-center px-5 sm:gap-6 sm:px-6">
+        {/*
+          Centred below sm, back to its normal left position from sm up.
+          Absolute rather than a three-column grid with an empty first cell,
+          so the wordmark is centred on the header itself and does not shift
+          when the sign-in control beside it changes width.
+        */}
+        <Link
+          href="/"
+          aria-label="FLARE, home"
+          className="absolute left-1/2 -translate-x-1/2 shrink-0 sm:static sm:left-auto sm:translate-x-0"
+        >
           <Image
             src="/images/FLARE_WORDMARK.png"
             alt="FLARE"
@@ -47,14 +61,12 @@ export async function SiteHeader() {
           />
         </Link>
 
-        <nav className="flex items-center gap-4 sm:gap-7">
+        <nav className="ml-auto hidden items-center gap-7 sm:flex">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`label text-ink/70 transition-colors hover:text-ink ${
-                item.mobile ? "" : "hidden sm:inline-block"
-              }`}
+              className="label text-ink/70 transition-colors hover:text-ink"
             >
               {item.label}
             </Link>
@@ -65,7 +77,7 @@ export async function SiteHeader() {
               {username && (
                 <Link
                   href={`/u/${username}`}
-                  className="label hidden text-ink/70 transition-colors hover:text-ink sm:inline-block"
+                  className="label text-ink/70 transition-colors hover:text-ink"
                 >
                   Profile
                 </Link>
@@ -83,6 +95,10 @@ export async function SiteHeader() {
             <HeaderAuthControl />
           )}
         </nav>
+
+        <div className="ml-auto sm:hidden">
+          <MobileNav links={NAV} username={username} signedIn={Boolean(user)} />
+        </div>
       </div>
     </header>
   );

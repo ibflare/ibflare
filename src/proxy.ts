@@ -16,34 +16,30 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Whether watching requires an account.
  *
- * This is the routing half of the viewing gate. Set it to false and the library
- * and every video page are public again, and no page component contains an auth
- * check of its own. It is written this way because the decision is provisional:
- * it is expected to be revisited once the club and the faculty sponsor have
- * discussed it. See CLAUDE.md section 9.4.
+ * Now false. The library, video pages and profiles are public; an account is
+ * only needed in order to contribute. That is the decision the club made, and
+ * it answers the open question in CLAUDE.md section 9.4.
  *
- * The other half is a database grant, and turning the gate off means changing
- * both. public_profiles is granted to authenticated only, so a signed-out
- * visitor reaching /u/[username] would find nothing there even with this
- * constant false. Restore it alongside:
+ * It also un-does the cost that section recorded: an under-13 cannot pass the
+ * age screen, so cannot hold an account, so while this was true they were shut
+ * out of the site entirely, including the level written for the youngest
+ * readers. They can now watch. They still cannot post or comment, because both
+ * require an onboarded account.
  *
- *     grant select on public.public_profiles to anon;
- *
- * That is the fix for an audit finding rather than an oversight: while the
- * grant was open to anon, this constant gated the page and left the data
- * readable by anyone holding the anon key, which is every visitor.
- *
- * Note what it costs while true: an under-13 visitor cannot pass the age
- * screen, so gating viewing behind an account shuts them out of the site
- * entirely, including material written for the youngest readers.
+ * This is the routing half only. The other half is a database grant, and the
+ * two have to move together: public_profiles has to be readable by anon or
+ * /u/[username] returns nothing to a signed-out visitor, since the server
+ * client falls back to the anon role when there is no session. Restored in
+ * 20260903000000. Re-gating means reverting both, not just this line.
  */
-const REQUIRE_ACCOUNT_TO_VIEW = true;
+const REQUIRE_ACCOUNT_TO_VIEW = false;
 
 /**
- * Only meaningful while REQUIRE_ACCOUNT_TO_VIEW is true.
+ * Only meaningful while REQUIRE_ACCOUNT_TO_VIEW is true, so unused today.
  *
- * /u is here because a profile page carries a contributor's name and picture.
- * Gating the library while leaving profiles open would put the same people on
+ * Kept because the gate is reversible and this is the list to restore. /u is
+ * in it because a profile page carries a contributor's name and picture, so
+ * gating the library while leaving profiles open would put the same people on
  * a public page by another route.
  */
 const VIEWING_PREFIXES = ["/library", "/v", "/u"];

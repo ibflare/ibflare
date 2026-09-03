@@ -350,20 +350,28 @@ RLS on every table. Write `has_capability(cap text)` as a `SECURITY DEFINER` fun
   update their own row but **cannot** touch `role`, `title`, or any capability flag; those go
   through a definer function that checks `can_manage_users` and writes `audit_log`.
 
-> **Changed after phase 2. The view is granted to `authenticated` only, not to anon.** It originally
-> read "exposes ... to anon", and that was the hole: the anon key ships to every browser by design,
-> so gating `/u/[username]` in the proxy protected the page while leaving every username, display
-> name, title, bio and avatar URL readable by anyone who asked PostgREST directly. No private column
-> ever leaked, since `grade`, `city` and `school` are absent from the view by construction, but the
-> reason for gating profiles was to keep contributor names off the open web, and the gate alone did
-> not achieve that. Revoked in `20260902000000`.
->
-> **This grant and `REQUIRE_ACCOUNT_TO_VIEW` now have to move together.** The view is
+> **The grant on this view and `REQUIRE_ACCOUNT_TO_VIEW` have to move together.** The view is
 > `security_invoker = false`, so it bypasses RLS on the base table and the grant is the only thing
-> guarding it: there is no policy to also adjust. Turning the gate off without restoring
-> `grant select on public.public_profiles to anon` leaves `/u/[username]` returning nothing for
-> signed-out visitors, because the server client falls back to the anon role when there is no
-> session. Both directions are recorded in the migration.
+> guarding it: there is no policy to also adjust. The two have now moved twice, in opposite
+> directions, and the history is worth keeping because each state was right for its gate:
+>
+> | Migration | Grant | Gate | Why |
+> |---|---|---|---|
+> | `20260829000000` | anon + authenticated | on | The original. A hole: page gated, data open |
+> | `20260902000000` | authenticated only | on | Closed that. Contributor names off the open web |
+> | `20260903000000` | anon + authenticated | **off** | Viewing is public, so the grant is the point |
+>
+> The middle row was a genuine finding. The anon key ships to every browser by design, so gating
+> `/u/[username]` in the proxy protected the page while leaving every username, display name, title,
+> bio and avatar URL readable by anyone who asked PostgREST directly. No private column ever leaked,
+> since `grade`, `city` and `school` are absent from the view by construction, but the reason for
+> gating profiles was to keep contributor names off the open web and the gate alone did not do it.
+>
+> With the gate off, the same grant is not a hole, it is the requirement: without it a signed-out
+> visitor gets an empty profile page, because the server client falls back to the anon role when
+> there is no session. **If viewing is ever re-gated, revoke the anon grant in the same commit.**
+> What has not changed in any of the three states: the base table is unreadable by anon, and the
+> private columns are absent from this view rather than merely unrendered.
 - **videos** — `status='published' AND deleted_at IS NULL` readable by anon. Insert requires
   `auth.uid() = owner_id AND can_post`. Update/delete for the owner or `can_moderate`.
 - **video_collaborators** — readable when the parent video is public, or by owner/invitee. Insert by
@@ -411,20 +419,30 @@ profile. Hiding a button is not enforcement. Likewise, the comments insert polic
 > - Neither has been reviewed by an adult with authority over the club. They describe collection of
 >   `grade`, `city`, `school`, and `birth_year` from minors, so that review matters.
 >
-> **The privacy policy and the viewing gate have to move together.** Its "who can see what" table
-> now says "Anyone with an account" for both profile fields and published content, which is true
-> only while `REQUIRE_ACCOUNT_TO_VIEW` is set. Flip that constant and both rows become wrong.
+> **The privacy policy and the viewing gate have to move together, and both have now moved twice.**
+> The "who can see what" table is the precise statement of who sees what, so it has to be edited in
+> the same commit as the gate. Its history:
 >
-> As of `20260902000000` the profile row is true of the data as well as of the routing: anon lost
-> SELECT on `public_profiles`, so "anyone with an account" is now the literal grant. Before that it
-> described the door and not the data. See section 6.
+> | Date on the policy | Profile and content rows | Gate |
+> |---|---|---|
+> | 29 August | "Anyone" | off |
+> | 30 August | "Anyone with an account" | on |
+> | 3 September | "Anyone, including people without an account" | **off** |
 >
-> The profile row was corrected, and the date bumped to 30 August, when `/u/[username]` moved behind
-> sign-in. **The prose elsewhere in both documents still says "public"** in several places: "Username
-> and display name. These are public", "Bio and profile picture ... public if you provide them",
-> "Comments are public", and clause 3 of the terms. That reading is defensible, since the content is
-> posted rather than private, and the table is the precise statement. It was left alone rather than
-> rewritten unasked. Decide whether it should be tightened when the gate decision is settled.
+> The current wording is deliberately explicit rather than just "Anyone", because the sentence a
+> student needs to understand is that a stranger with no account can read their bio and watch their
+> videos. The date bump is required by the policy's own Changes section, which promises a new date
+> whenever who-can-see-what changes.
+>
+> **The prose elsewhere in both documents says "public"** in several places: "Username and display
+> name. These are public", "Bio and profile picture ... public if you provide them", "Comments are
+> public", and clause 3 of the terms. Under the gate that was arguably loose. With viewing public it
+> is simply correct, so it needed no edit this time. Re-gating would make it loose again.
+>
+> **One gap the gate change opens.** The terms say the reader agrees to them by creating an account.
+> A signed-out visitor now uses the whole library without ever creating one, so nothing binds them
+> to the terms. That is ordinary for a public website, and fixing it is a wording question for
+> whoever reviews these documents, not a code change.
 
 **Officers are no longer listed on the landing page.** The placeholder cards
 were removed in phase 1. Note that §2 gives "listing current officers on the
@@ -465,6 +483,20 @@ height; worth doing if either list grows.
 
 Because the header carries the only way home, any page that drops it has to provide one. `/login`
 puts the lockup in its left panel above `lg`, and a wordmark above the form below it.
+
+**Below `sm` the header is a centred wordmark and a three-line button.** `MobileNav` opens a
+full-height `paper` panel holding every nav link, Profile, and the sign-in or sign-out control. It
+exists because the narrow header had room for one nav link and had already dropped `/contribute` and
+Profile to fit, which meant the two links a signed-in contributor most needs were the two that
+disappeared. From `sm` up nothing changes: the wordmark goes back to the left and the inline nav
+returns.
+
+> **The panel is portalled to `document.body`, and it has to be.** The header carries
+> `backdrop-blur-sm`, and `backdrop-filter` makes an element a containing block for fixed-position
+> descendants exactly the way `transform` does. Rendered inside the header, the panel's `fixed`
+> resolved against the `4rem` header instead of the viewport, so `top-16 bottom-0` collapsed it to a
+> strip across the top of the page with the content still visible underneath. This is worth
+> remembering before adding any other fixed overlay: the header is not a neutral ancestor.
 
 > **The file is `src/proxy.ts`, not `middleware.ts`.** Next 16 deprecated the `middleware` file
 > convention and renamed it to `proxy`; the export is `proxy`, and `middleware.ts` is silently
@@ -613,29 +645,31 @@ Most users are minors. Hard constraints, not preferences.
    Stopping that would mean recording that this person failed, which means keeping data about the
    child, which is the thing the deletion above exists to avoid. The weaker gate is the right trade.
 
-   **Watching now requires an account, which shuts under-13 visitors out of the site entirely.**
-   `/library`, `/v/[id]`, and `/u/[username]` are gated. Profiles are in that list because a profile
-   page carries a contributor's name and picture, and gating the library while leaving profiles open
-   would put the same people on a public page by another route. An under-13 cannot pass the age
-   screen, so cannot get an account, so cannot watch anything, including Spark, the level written
-   for the youngest readers. Level 1 is relabelled "Ages 13–14" to match, since no one younger can
-   reach it.
+   **Decided: watching is public. An account is only needed in order to contribute.**
+   `REQUIRE_ACCOUNT_TO_VIEW` in `src/proxy.ts` is `false`, and `20260903000000` restores the anon
+   grant on `public_profiles` that the gate required. `/library`, `/v/[id]` and `/u/[username]` are
+   open; `/dashboard` and everything under it still requires an account, as does posting or
+   commenting, both of which need an onboarded profile.
 
-   **This is provisional.** It is a placeholder until the club and the faculty sponsor decide what
-   they actually want, and it is expected to be reversed. The gate is a single constant,
-   `REQUIRE_ACCOUNT_TO_VIEW` in `src/proxy.ts`, and no page component contains an auth check of its
-   own, deliberately.
+   This replaces the previous arrangement, which gated all three and is described below only because
+   the reasoning still applies if it is ever reinstated. Under it, an under-13 could not pass the age
+   screen, so could not hold an account, so could not watch anything, including Spark, the level
+   written for the youngest readers. That was recorded as the open question. It is now answered: a
+   free financial literacy library for a public school district should not be behind a login.
 
-   **It is no longer a one-line reversal, and that is deliberate too.** This paragraph used to say
-   "set it to false and the library is public again with no other change". That was true of the
-   routing and false of the data: `public_profiles` was granted to anon, so profile data was
-   readable without an account whatever the constant said. Since `20260902000000` the grant matches
-   the gate, which means turning the gate off now takes two edits, the constant and
-   `grant select on public.public_profiles to anon`. Section 6 records both.
+   **Under-13 visitors can watch, and still cannot participate.** They cannot pass the age screen,
+   so they cannot hold an account, so they cannot post or comment. Nothing is collected from them,
+   because nothing is collected from anyone who is only reading.
 
-   Open question for that discussion, which the code does not answer: should watching require an
-   account at all? Gating a free financial literacy library for a public school district is a real
-   cost, and it is the reason under-13s are excluded rather than merely limited.
+   **Loose end from the reversal.** Level 1 is currently labelled "Ages 13–14" in section 3 and in
+   `DIFFICULTY_LEVELS`, and it was relabelled to that specifically because no one younger could
+   reach it. They can now. The label is client copy deck wording, so it has been left alone rather
+   than changed unasked, but it is now describing a restriction that no longer exists.
+
+   **Re-gating means two edits, not one.** The constant, and revoking
+   `grant select on public.public_profiles to anon`. Section 6 has the table of which state went
+   with which gate. No page component contains an auth check of its own, deliberately, so those two
+   are the whole mechanism.
 
    **Optional lever worth knowing about:** Google returns an `hd` (hosted domain) claim for
    Workspace accounts. Signups can be restricted to the school's domain, with an allowlist table for
@@ -758,8 +792,10 @@ Decisions worth knowing:
 An audit at the phase 2/3 boundary drove `20260902000000_close_profile_findings.sql`. Three findings,
 one theme: each was a rule the application enforced and the database did not.
 
-- **`public_profiles` was granted to anon.** Covered in section 6 and section 9.4. The proxy gated
-  the page; the grant left the data open.
+- **`public_profiles` was granted to anon.** The proxy gated the page; the grant left the data open.
+  Fixed by revoking it, then deliberately restored a day later in `20260903000000` when the club
+  decided viewing should be public, which makes the grant correct rather than a hole. The finding
+  was still real: the two had to be made to agree, and they now do. Section 6 has the full table.
 - **The reserved username list lived only in the server action**, so a test account was renamed to
   `flare` straight through PostgREST. It is now `is_reserved_username()` in the database, backing a
   check constraint on the column, and `src/app/onboarding/actions.ts` calls that function instead of
@@ -807,6 +843,34 @@ Masters live in `media-src/`, which is gitignored. Only encoded web versions bel
 There are two background videos. The landing page uses `hero.mp4`; `/login` uses `signinup.mp4`,
 which is its own footage rather than the hero reused, so it is a second download rather than a
 cache hit.
+
+### App icons
+
+Next emits the `<link>` tags from the filenames alone, so there is no markup to maintain. Both
+current files are built from the same client-supplied 180x180 artwork.
+
+| File | Covers |
+|---|---|
+| `src/app/apple-icon.png` | 180x180, iOS home screen. Opaque RGB, which iOS requires: it flattens a transparent icon onto black |
+| `src/app/favicon.ico` | 16, 32 and 48 packed. Tabs, legacy, the bare `/favicon.ico` request, and Google's "multiple of 48px square" rule |
+
+Still missing: `icon.svg`, and `icon-192`/`icon-512`/a maskable variant in `public/icons/` with a
+`src/app/manifest.ts` to reference them. Without a manifest the Android and PWA sizes do nothing,
+and Android crops to the launcher's shape, so a maskable variant needs its artwork inside the
+centre 80% circle.
+
+Two known compromises in the current icons, both inherited from the source artwork:
+- **It runs to the top and right edges with no inset.** iOS rounds at roughly a 22% radius, so
+  those edges clip.
+- **The 16 and 32 entries are downscales, and at 16 the flame and the dollar sign collapse into
+  noise.** The small sizes want a simplified drawing rather than the same one shrunk. This is
+  normal: a favicon at 16px is a different piece of artwork, not the same one smaller.
+
+**Link previews are not favicons and are not done.** iMessage, WhatsApp, Instagram and Discord read
+Open Graph tags, not icons. `layout.tsx` sets `openGraph` title, description and type but **no
+image**, so a shared link renders as text. That needs an `opengraph-image` at 1200x630, and it needs
+`metadataBase` fixed first: it currently points at `https://flare-rgv.vercel.app`, which is not the
+deployed origin and 404s, and it is what relative OG image URLs resolve against.
 
 > **`signinup.mp4` has not been through the encode recipe above.** It is 11.5MB against `hero.mp4`'s
 > 4.9MB, is 25fps rather than 24, and still carries an AAC audio track that can never play because

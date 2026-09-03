@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LoginPanel } from "./LoginPanel";
+import { QuoteRotator } from "./QuoteRotator";
 
 export const metadata = {
   title: "Sign in",
@@ -41,8 +42,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         muted, looping, aria-hidden and untabbable, since it says nothing a
         screen reader needs.
 
-        Over it, the full lockup and one line of copy taken from the landing
-        page. Nothing else. This is a sign-in page, not a pitch.
+        Over it, the full lockup and a rotating quote. Nothing else. This is a
+        sign-in page, not a pitch.
 
         signinup-poster.jpg is frame 0 of the video, so the first paint matches
         the first played frame rather than jumping. It is deliberately encoded
@@ -76,10 +77,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           />
         </Link>
 
-        <p className="font-display max-w-md text-3xl leading-tight font-medium text-balance">
-          Answer a question once, and the next person doesn&rsquo;t have to
-          start from nothing.
-        </p>
+        <QuoteRotator />
 
         <p className="label text-mist/40">FLARE at Lamar Academy</p>
       </div>
