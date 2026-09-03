@@ -866,11 +866,36 @@ Two known compromises in the current icons, both inherited from the source artwo
   noise.** The small sizes want a simplified drawing rather than the same one shrunk. This is
   normal: a favicon at 16px is a different piece of artwork, not the same one smaller.
 
-**Link previews are not favicons and are not done.** iMessage, WhatsApp, Instagram and Discord read
-Open Graph tags, not icons. `layout.tsx` sets `openGraph` title, description and type but **no
-image**, so a shared link renders as text. That needs an `opengraph-image` at 1200x630, and it needs
-`metadataBase` fixed first: it currently points at `https://flare-rgv.vercel.app`, which is not the
-deployed origin and 404s, and it is what relative OG image URLs resolve against.
+### Link previews
+
+Not the same thing as favicons, and not driven by them: iMessage, WhatsApp, Instagram, Discord and
+Slack read Open Graph tags. `layout.tsx` sets them, with the share image at
+`public/images/flare1200630.png`, 1200x630.
+
+Referenced through `metadata.openGraph.images` rather than the `src/app/opengraph-image.png` file
+convention, so the file the client uploaded stays the only copy. Both routes work; the convention
+would mean a second 171KB binary in the repo to keep in step.
+
+Three things worth knowing:
+
+- **`metadataBase` has to be the real deployed origin.** Every relative URL in the metadata object
+  resolves against it, so the share image becomes absolute from that value. It read
+  `https://flare-rgv.vercel.app` until 3 September, which is not this site and answers 404, so a
+  shared link pointed every scraper at a dead host. It is now `https://ibflare.vercel.app`, and it
+  changes again when there is a real domain, in the same commit as the privacy policy's
+  `flare.example.org` placeholder.
+- **`twitter:card` is not implied by having an image.** Without `card: "summary_large_image"` X
+  renders a small square thumbnail beside the text rather than the wide image. There is no separate
+  `twitter-image` file, because X falls back to `og:image` and Next fills in `twitter:image` from it.
+- **`og:image:width` and `og:image:height` are declared, not inferred.** A scraper that has not
+  downloaded the file yet uses them to lay the card out, and some render nothing without them.
+
+Two compromises in the current share image, both design choices rather than bugs:
+- Its background is a bright green gradient, which is not in the `@theme` palette. `--ink` on
+  `--paper` would match the rest of the site.
+- The lockup runs close to the left and right edges. Clients that crop a share image toward square,
+  which some chat apps do for small thumbnails, will cut the outer letters. Keeping the lockup
+  inside the middle two thirds survives that crop.
 
 > **`signinup.mp4` has not been through the encode recipe above.** It is 11.5MB against `hero.mp4`'s
 > 4.9MB, is 25fps rather than 24, and still carries an AAC audio track that can never play because

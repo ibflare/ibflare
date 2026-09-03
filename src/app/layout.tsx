@@ -20,19 +20,62 @@ const jost = Jost({
   display: "swap",
 });
 
+const SITE = "https://ibflare.vercel.app";
+
+const SHARE_TITLE = "FLARE: Financial Literacy Advancement for RGV Equity";
+const SHARE_DESCRIPTION =
+  "A student-run video library explaining financial literacy, taxes, and economics, sorted by difficulty.";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://flare-rgv.vercel.app"),
+  /*
+   * The deployed origin, and it has to be right for more than tidiness: every
+   * relative URL in this object is resolved against it, so the share image
+   * below becomes an absolute URL from this value. It previously read
+   * flare-rgv.vercel.app, which is not this site and answers 404, meaning a
+   * shared link pointed a scraper at a dead host.
+   *
+   * Replace this when there is a real domain. The privacy policy's
+   * flare.example.org placeholder has to change in the same commit.
+   */
+  metadataBase: new URL(SITE),
   title: {
-    default: "FLARE: Financial Literacy Advancement for RGV Equity",
+    default: SHARE_TITLE,
     template: "%s | FLARE",
   },
   description:
     "A student-run video library explaining financial literacy, taxes, and economics, sorted by difficulty so you can find the version pitched at you.",
   openGraph: {
-    title: "FLARE: Financial Literacy Advancement for RGV Equity",
-    description:
-      "A student-run video library explaining financial literacy, taxes, and economics, sorted by difficulty.",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
     type: "website",
+    siteName: "FLARE",
+    url: SITE,
+    locale: "en_US",
+    /*
+     * This is what iMessage, WhatsApp, Instagram, Discord and Slack render.
+     * Width and height are stated rather than left to be discovered: a
+     * scraper that has not downloaded the file yet uses them to lay out the
+     * card, and some show nothing at all without them.
+     */
+    images: [
+      {
+        url: "/images/flare1200630.png",
+        width: 1200,
+        height: 630,
+        alt: "The FLARE wordmark, a flame containing a dollar sign, over the words Financial Literacy Advancement for RGV Equity.",
+      },
+    ],
+  },
+  /*
+   * twitter:card is not implied by having an image. Without it the card
+   * defaults to a small square thumbnail beside the text instead of the wide
+   * image. There is no separate twitter:image here on purpose: X falls back to
+   * og:image, so a second copy would be one more thing to keep in step.
+   */
+  twitter: {
+    card: "summary_large_image",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
   },
 };
 
