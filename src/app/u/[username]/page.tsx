@@ -1,7 +1,8 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { publicTag, initials, type PublicProfile } from "@/lib/profiles";
+import { createClient, getCurrentProfile } from "@/lib/supabase/server";
+import { publicTag, type PublicProfile } from "@/lib/profiles";
+import { Avatar } from "@/components/Avatar";
+import { AvatarEditor } from "./AvatarEditor";
 
 /**
  * Public profile.
@@ -44,28 +45,34 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
 
   const tag = publicTag(profile.role, profile.title);
 
+  /*
+   * The editor is for the owner of this profile, and only if they can post.
+   * A user-supplied image is a moderation surface, and contributors are a
+   * known group, so viewers keep the Google picture the signup trigger stored
+   * and get no control. Section 2.
+   *
+   * This is the display decision only. The storage policies check the same
+   * capability, so hiding the control is not what enforces it.
+   */
+  const viewer = await getCurrentProfile();
+  const canEdit = viewer?.id === profile.id && viewer?.can_post === true;
+
   return (
     <section>
       <div className="mx-auto max-w-4xl px-6 py-20 sm:py-24">
         <div className="flex flex-col gap-7 sm:flex-row sm:items-start sm:gap-10">
-          {profile.avatar_url ? (
-            <Image
+          {canEdit ? (
+            <AvatarEditor
               src={profile.avatar_url}
-              alt=""
-              width={112}
-              height={112}
-              className="size-24 shrink-0 rounded-full object-cover sm:size-28"
-              unoptimized
+              displayName={profile.display_name}
             />
           ) : (
-            <div
-              className="flex size-24 shrink-0 items-center justify-center rounded-full bg-ink/8 sm:size-28"
-              aria-hidden
-            >
-              <span className="font-display text-3xl font-medium text-ink/35">
-                {initials(profile.display_name)}
-              </span>
-            </div>
+            <Avatar
+              src={profile.avatar_url}
+              displayName={profile.display_name}
+              px={112}
+              className="size-24 sm:size-28"
+            />
           )}
 
           <div className="min-w-0">

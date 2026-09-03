@@ -392,6 +392,58 @@ RLS on every table. Write `has_capability(cap text)` as a `SECURITY DEFINER` fun
 - **reports / audit_log** — readable only with `can_moderate`. Insert on `reports` by any signed-in user.
 - **site_settings** — readable by anon (the app needs to know if comments are on). Update requires
   `can_manage_users`.
+- **storage.objects, `avatars` bucket** — public read. Insert, update and delete require the object
+  path to open with the caller's own uid, plus `has_capability('post')` and `suspended_at IS NULL`.
+
+### Profile pictures
+
+Added after phase 2, in `20260903010000`. The default is the Google avatar the signup trigger
+stores. A user with **`can_post`** may replace it or remove it; a viewer keeps their Google picture
+and gets no control, because a user-supplied image is a moderation surface and contributors are a
+known group. The capability is checked in the storage policies, not only in the UI.
+
+- **One object per user, at a fixed name:** `avatars/<uid>/avatar.webp`. An upload replaces the
+  previous file rather than adding to a pile, so nothing accumulates and there is nothing to garbage
+  collect. The fixed name is why the storage policies cover UPDATE as well as INSERT: `upsert`
+  makes a replacement an update.
+- **Everything is re-encoded to webp** at 400x400, `fit: cover`. The bucket therefore allows
+  `image/webp` only. jpg and png are accepted as *input* and converted; listing them on the bucket
+  would permit uploads that never come from this app.
+- **The file type is read from the bytes, never the extension.** A magic-byte check runs first so an
+  obviously wrong file is rejected without decoding, then sharp's own read is the authoritative
+  check. `limitInputPixels` is capped at 50MP: a 2MB PNG can describe hundreds of megapixels, and
+  decoding it is how a small upload becomes an out-of-memory kill.
+- **`sharp` is now an explicit dependency.** It was already present as a transitive dependency of
+  Next, which is not something to rely on for application code.
+
+> **`.rotate()` is called before resizing, and `.withMetadata()` is deliberately never called.**
+> Rotate applies the EXIF orientation flag, so a photo taken sideways is not stored sideways, and it
+> has to come first because afterwards the dimensions are already swapped. Dropping metadata is the
+> default and is wanted here for a privacy reason as well as a size one: a phone photo carries EXIF
+> GPS coordinates, and section 9.3 forbids collecting a street address. Adding `withMetadata()`
+> would quietly start storing the coordinates of a student's bedroom.
+
+> **The `profiles_avatar_url_allowed` constraint is what makes the rest mean anything.**
+> `avatar_url` is in the UPDATE grant for `authenticated`, so without it any signed-in user can
+> `PATCH` the column to an arbitrary string through PostgREST: an offsite tracking pixel, a
+> hotlinked image, anything. Restricting which folder someone may upload into is worth nothing while
+> the column itself accepts any URL. The constraint allows exactly three things: NULL, a
+> `googleusercontent.com` URL, or an object in this bucket. **If a new avatar source is ever added,
+> widen the constraint in the same commit as the code that writes it.**
+
+> **Removal is not a revert.** It sets `avatar_url` to NULL and renders initials; it does not restore
+> the Google URL. Someone removing their photo is asking for no photo.
+
+> **Google avatar URLs expire, so every avatar render site needs an `onError` fallback.** They stop
+> resolving when someone changes their Google photo, and the profile row keeps the dead URL until
+> that person next signs in. `src/components/Avatar.tsx` is the single component every avatar goes
+> through for this reason: initials have to be reachable from a *load failure*, not only from a null
+> `avatar_url`. Do not render an avatar with a bare `<img>` or `next/image`; phases 3 to 5 add
+> bylines and comment avatars and they all go through `Avatar`.
+
+> **Cache busting is load-bearing.** The public URL of a replaced object is the same string, and it
+> is served with a one-year `cacheControl`, so `avatar_url` carries a `?v=<timestamp>`. Without it a
+> new picture does not appear. The constraint matches on the prefix, so the query string is fine.
 
 **Suspension is enforced in the database, not just the UI.** Every insert policy on `videos`,
 `comments`, `video_collaborators`, and `reports` also requires `suspended_at IS NULL` on the acting
