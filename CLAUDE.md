@@ -779,11 +779,10 @@ ladder.
 
 Outstanding, to be cleared as later phases land:
 
-- The header, footer, and CTAs link to `/library`, `/contribute`, and `/login`. `/login` landed in
-  phase 2 and `/contribute` was built at the phase 2/3 boundary, ahead of its phase, because it is
-  static and has no dependencies: it was the cheapest way to clear the most visible dead link in the
-  nav. `/library` still 404s, or rather redirects to `/login`, since the gate matches the prefix
-  before routing resolves. Phase 3.
+- The header, footer, and CTAs link to `/library`, `/contribute`, and `/login`. All three now exist:
+  `/login` landed in phase 2, `/contribute` was built at the phase 2/3 boundary ahead of its phase
+  because it is static and had no dependencies, and `/library` landed with phase 3. The footer's
+  `/library?difficulty=1` link works as a real filter now rather than a dead parameter.
 - `/privacy` and `/terms` are linked from the footer and 404. See §7.
 - Officers are not shown anywhere. If they should return to the landing page, read them from
   `profiles` in phase 2 rather than reinstating a placeholder file.
@@ -890,6 +889,46 @@ one theme: each was a rule the application enforced and the database did not.
 > site, where before it asked. If that is the wrong trade, the lever is the constraint, not the
 > form: drop `city` and `school` from `profiles_onboarded_requires_profile` and make the fields
 > optional again in the same commit.
+
+### Phase 3 status
+
+Built: `supabase/migrations/20260904000000_videos.sql`, `src/lib/youtube.ts`,
+`/api/youtube`, `/dashboard/upload`, `/library`, `/v/[id]`, `src/components/VideoCard.tsx`, and
+`supabase/seeds/seed_videos.sql`.
+
+Decisions worth knowing:
+
+- **`public_videos` exists for the byline.** A card needs the owner's display name, the base
+  `profiles` table is not readable by anon, and PostgREST cannot embed `public_profiles` because a
+  view has no foreign key to follow. So the join is done once in a view, filtered to published and
+  non-deleted, `security_invoker = false`, granted to anon. Same arrangement and same warning as
+  `public_profiles`: a column added here is public.
+- **A draft is invisible through that view, even to its owner.** Correct while nothing renders
+  drafts. The phase 4 dashboard reads the base table, where the owner policy already allows it.
+- **The resolver runs twice, and the second time is the one that counts.** `/api/youtube` resolves
+  on paste to prefill the form; `createVideo` resolves again on submit. The id, thumbnail and
+  duration all arrive in a request anyone can forge, and re-resolving is also the only way to know
+  the video is still public and still embeddable at the moment of publishing rather than at the
+  moment of pasting. The title is the one field taken from the form, because §5 says the
+  contributor may edit it.
+- **`/api/youtube` is gated on `can_post`.** It spends a unit of the 10,000 per day quota per call,
+  so leaving it open would hand a stranger the ability to exhaust it.
+- **There is no DELETE policy on `videos`.** Deletes are soft per §3, so nothing should ever issue
+  `DELETE FROM videos` and no policy permits it. `deleted_at` and `deleted_by` are absent from the
+  column grants too, so the soft delete has to go through the audited path phase 4 adds.
+- **`view_count` has no writer.** Incrementing it on a public page needs a definer function and a
+  write on every read; deferred rather than done badly.
+- **The player mounts nothing until clicked.** §5's thumbnail-first rule, and the reason is weight:
+  a YouTube embed pulls several hundred KB and sets cookies the moment it exists.
+
+> **The upload form is at `/dashboard/upload` but `/dashboard` itself does not exist.** §7 puts it
+> there and the proxy already gates the whole prefix, so the route is right; the index page around
+> it is phase 4. Until then the form is reached from `/contribute` or by URL, and a visitor who
+> types `/dashboard` gets a 404.
+
+Deferred to phase 4 by design, not oversight: collaborators and the multi-name byline, the admin
+surfaces, and the soft-delete path. Comments on `/v/[id]` are phase 5 and ship with the moderation
+stack or not at all.
 
 ### Media assets
 

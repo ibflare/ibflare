@@ -88,6 +88,23 @@ export const TOPICS = [
 export type Topic = (typeof TOPICS)[number];
 
 /**
+ * Display names for the topics. The stored values are lowercase single words
+ * because they go in a check constraint and a query string; these are what a
+ * reader sees. Keep every key in TOPICS present here, or a filter renders as a
+ * blank pill.
+ */
+export const TOPIC_LABELS: Record<Topic, string> = {
+  taxes: "Taxes",
+  banking: "Banking",
+  credit: "Credit",
+  investing: "Investing",
+  career: "Career",
+  macro: "Macroeconomics",
+  micro: "Microeconomics",
+  corporate: "Corporate finance",
+};
+
+/**
  * The colour for a difficulty level. CLAUDE.md §8.
  *
  * One hue per level, cool to hot, so the ladder reads as novice to advanced
