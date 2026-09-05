@@ -79,7 +79,8 @@ capability flags a sponsor ticks per person.
 ### Capability flags on `profiles`
 
 - **`can_post`** — publish and edit their own videos
-- **`can_moderate`** — edit, hide, or delete **any** video; resolve reported comments
+- **`can_moderate`** — edit, hide, or delete **any** video; resolve reported comments; clear anyone's
+  profile picture
 - **`can_manage_users`** — change anyone's role, title, and capability flags
 
 Always gate features on the capability, never on the role string. `role` is for display and for
@@ -392,15 +393,38 @@ RLS on every table. Write `has_capability(cap text)` as a `SECURITY DEFINER` fun
 - **reports / audit_log** — readable only with `can_moderate`. Insert on `reports` by any signed-in user.
 - **site_settings** — readable by anon (the app needs to know if comments are on). Update requires
   `can_manage_users`.
-- **storage.objects, `avatars` bucket** — public read. Insert, update and delete require the object
-  path to open with the caller's own uid, plus `has_capability('post')` and `suspended_at IS NULL`.
+- **storage.objects, `avatars` bucket** — public read. Insert and update require the object path to
+  open with the caller's own uid, plus `is_onboarded()` and `suspended_at IS NULL`. Delete is the
+  asymmetric one: your own folder on those same terms, **or** any folder with `can_moderate`.
 
 ### Profile pictures
 
-Added after phase 2, in `20260903010000`. The default is the Google avatar the signup trigger
-stores. A user with **`can_post`** may replace it or remove it; a viewer keeps their Google picture
-and gets no control, because a user-supplied image is a moderation surface and contributors are a
-known group. The capability is checked in the storage policies, not only in the UI.
+Added after phase 2 in `20260903010000`, then opened up in `20260904010000`. The default is the
+Google avatar the signup trigger stores, and **any onboarded, unsuspended account** may replace it
+or remove it.
+
+> **It was limited to `can_post` first, and the reason for that limit did not go away.** A
+> user-supplied image is a moderation surface, and contributors are a known group, so restricting
+> uploads to them was the cheap way to keep the surface small. Opening it to everyone was the
+> client's call, and it is only safe because `20260904010000` adds the thing that was missing: a way
+> to take an image down. Before that, the only person who could remove a picture was the person who
+> uploaded it.
+>
+> **`can_moderate` can clear anyone's picture, audited.** `clear_avatar(target, reason)` is a
+> definer function, because `avatar_url` on someone else's row is not writable by anybody: the
+> update policy on `profiles` is owner-only. So that function is the whole mechanism, it checks the
+> capability itself, and it writes an `audit_log` row with `profile.avatar_clear`.
+>
+> **Remove, never replace.** A moderator has no path to *setting* another person's picture, and
+> `clear_avatar` deliberately does not offer one.
+>
+> **The object and the column come down separately.** SQL cannot reach the storage API, so
+> `clear_avatar` nulls the column and the server action deletes the object straight afterwards,
+> which the moderator branch of the delete policy permits. If that second step fails the object is
+> orphaned but unreferenced: nothing renders it, and the owner's next upload overwrites it.
+>
+> **The control lives on the profile page**, not in an admin queue, because there is no admin
+> surface until phase 4 and the page the image is on is where a moderator would look for it.
 
 - **One object per user, at a fixed name:** `avatars/<uid>/avatar.webp`. An upload replaces the
   previous file rather than adding to a pile, so nothing accumulates and there is nothing to garbage
@@ -459,7 +483,8 @@ profile. Hiding a button is not enforcement. Likewise, the comments insert polic
 /library                Browse. Search + difficulty + topic filters. Server-rendered, paginated
 /v/[id]                 Video page. Embed, byline with collaborators, comments
 /u/[username]           Public profile. Name, title, bio, their videos. No grade/city/school
-/contribute             How to upload to YouTube and post here
+/our-mission            Why FLARE exists. In the nav for signed-out visitors only
+/contribute             How to upload to YouTube and post here. In the nav for signed-in accounts only
 /login                  Sign in or create an account: Google, or email and password
 /onboarding             First run: username, display name, grade, school, city
 /dashboard              Own videos, drafts, pending collaboration invites
@@ -546,6 +571,23 @@ height; worth doing if either list grows.
 
 Because the header carries the only way home, any page that drops it has to provide one. `/login`
 puts the lockup in its left panel above `lg`, and a wordmark above the form below it.
+
+**The nav depends on the session.** Signed out it is Library, Our mission, Sign in; signed in it is
+Library, Contribute, Sign out. `/our-mission` answers a question a member has already answered, and
+`/contribute` is instructions for a thing a visitor cannot do yet, so neither appears in the other
+state and the nav stays three items wide. `SiteFooter`'s second column follows the same split, which
+is why it is an async server component now rather than a static one.
+
+> **`ConditionalFooter` takes `SiteFooter` as children**, mirroring `ConditionalHeader`, and for the
+> same reason. It imported it directly while the footer was static. The moment the footer needed the
+> session it became an async server component reading `next/headers`, and a client component cannot
+> render one of those: the build fails with "you are using it in the Pages Router", which is a
+> confusing way to say the child was treated as client code.
+
+> **Profile is no longer in the nav**, on the client's instruction, and the cost is worth recording:
+> a signed-in member now has no route from the chrome to their own profile, which is where the
+> picture upload lives. The header's username lookup was removed with it, since it existed only to
+> build that link.
 
 **Below `sm` the header is a centred wordmark and a three-line button.** `MobileNav` opens a
 full-height `paper` panel holding every nav link, Profile, and the sign-in or sign-out control. It
@@ -745,6 +787,20 @@ Most users are minors. Hard constraints, not preferences.
    `videos.release_ok` with the timestamp. The paper releases live outside the app, in a folder the
    officers keep. The checkbox is a record, not a substitute — say so in the label.
 6. Comments ship with the moderation stack in §4 or they don't ship.
+7. **Profile pictures ship with a takedown path or they don't ship.** Uploading is open to every
+   onboarded account as of `20260904010000`, which means the site now accepts arbitrary images from
+   minors. That is only defensible because `can_moderate` can clear anyone's picture and the removal
+   is audited. If the takedown path is ever removed, close uploads in the same commit. §6 has the
+   mechanism.
+
+   **Nothing about the uploader's device is kept.** Every upload is re-encoded, and `sharp` drops
+   metadata unless asked to keep it, so EXIF does not survive. That is a privacy measure and not
+   only a size one: a phone photo carries GPS coordinates, and rule 3 forbids collecting a street
+   address. Storing a student's bedroom coordinates because nobody thought about EXIF would break
+   that rule by accident. **Never add `withMetadata()`.**
+
+   `.rotate()` is called before resizing, which reads the EXIF orientation flag and applies it, so
+   dropping the rest of the metadata does not leave sideways photos.
 
 ---
 

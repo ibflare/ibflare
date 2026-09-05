@@ -6,36 +6,49 @@ import { HeaderAuthControl } from "./HeaderAuthControl";
 import { MobileNav } from "./MobileNav";
 
 /**
- * The header uses FLARE_WORDMARK.png, the full lockup cropped to just the
- * wordmark (generated from FLARE_LOGO.png, tagline band removed). The tagline
- * in the full logo is ~25px tall in a 724px-tall file, so at header height it
- * renders as illegible mush. The full lockup belongs somewhere it has room.
+ * The nav depends on whether you are signed in.
+ *
+ *   signed out  Library, Our mission, then Sign in
+ *   signed in   Library, Contribute, then Sign out
+ *
+ * Our mission is for people deciding whether FLARE is worth their time, which
+ * is not a question a signed-in member still has. Contribute is instructions
+ * for publishing, which is not useful to someone who cannot publish yet.
+ * Neither appears in the other state, so the nav stays three items wide.
  */
-/**
- * Both links show in both navs now. They used to carry a `mobile` flag,
- * because the narrow header had room for one and /contribute was the one that
- * yielded. The panel in MobileNav has room for everything, so the flag went.
- */
-const NAV = [
+const NAV_SIGNED_OUT = [
+  { href: "/library", label: "Library" },
+  { href: "/our-mission", label: "Our mission" },
+];
+
+const NAV_SIGNED_IN = [
   { href: "/library", label: "Library" },
   { href: "/contribute", label: "Contribute" },
 ];
 
+/**
+ * Uses FLARE_WORDMARK.png, the full lockup cropped to just the wordmark
+ * (generated from FLARE_LOGO.png with the tagline band removed). The tagline
+ * in the full logo is ~25px tall in a 724px-tall file, so at header height it
+ * renders as illegible mush. The full lockup belongs somewhere it has room.
+ */
 export async function SiteHeader() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let username: string | null = null;
-  if (user) {
-    const { data } = await supabase
-      .from("public_profiles")
-      .select("username")
-      .eq("id", user.id)
-      .maybeSingle();
-    username = data?.username ?? null;
-  }
+  const nav = user ? NAV_SIGNED_IN : NAV_SIGNED_OUT;
+
+  /*
+   * No username lookup any more. The header used to fetch it for a Profile
+   * link, and dropping that link from the nav made the query dead weight: one
+   * database round trip on every request, for nothing.
+   *
+   * The cost of dropping the link is that a signed-in member now has no route
+   * to their own profile from the chrome, and that is where the picture upload
+   * lives. Worth revisiting.
+   */
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/85 backdrop-blur-sm">
@@ -62,7 +75,7 @@ export async function SiteHeader() {
         </Link>
 
         <nav className="ml-auto hidden items-center gap-7 sm:flex">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -73,31 +86,21 @@ export async function SiteHeader() {
           ))}
 
           {user ? (
-            <>
-              {username && (
-                <Link
-                  href={`/u/${username}`}
-                  className="label text-ink/70 transition-colors hover:text-ink"
-                >
-                  Profile
-                </Link>
-              )}
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="label rounded-full border border-ink/25 px-4 py-2.5 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-mist"
-                >
-                  Sign out
-                </button>
-              </form>
-            </>
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="label rounded-full border border-ink/25 px-4 py-2.5 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-mist"
+              >
+                Sign out
+              </button>
+            </form>
           ) : (
             <HeaderAuthControl />
           )}
         </nav>
 
         <div className="ml-auto sm:hidden">
-          <MobileNav links={NAV} username={username} signedIn={Boolean(user)} />
+          <MobileNav links={nav} signedIn={Boolean(user)} />
         </div>
       </div>
     </header>

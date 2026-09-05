@@ -1,29 +1,53 @@
 import Image from "next/image";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
-const COLUMNS = [
-  {
-    heading: "Watch",
-    links: [
-      { href: "/library", label: "Library" },
-      { href: "/library?difficulty=1", label: "Start at level 1" },
-    ],
-  },
-  {
-    heading: "Take part",
-    links: [
-      { href: "/contribute", label: "How to contribute" },
-      { href: "/login", label: "Sign in" },
-    ],
-  },
-];
+/**
+ * The second column follows the header: Our mission and Sign in for a visitor,
+ * How to contribute and Sign out for a member. The first column is the same
+ * either way, since the library is public.
+ *
+ * This is why the footer is an async server component now. It was static, and
+ * reading the session here costs one getUser call that the header has already
+ * made; a shared cache is the tidier answer if a third surface ever needs it.
+ */
+const WATCH = {
+  heading: "Watch",
+  links: [
+    { href: "/library", label: "Library" },
+    { href: "/library?difficulty=1", label: "Start at level 1" },
+  ],
+};
+
+const TAKE_PART_SIGNED_OUT = {
+  heading: "About",
+  links: [
+    { href: "/our-mission", label: "Our mission" },
+    { href: "/login", label: "Sign in" },
+  ],
+};
+
+const TAKE_PART_SIGNED_IN = {
+  heading: "Take part",
+  links: [
+    { href: "/contribute", label: "How to contribute" },
+    { href: "/dashboard/upload", label: "Publish a video" },
+  ],
+};
 
 const LEGAL_LINKS = [
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const columns = [WATCH, user ? TAKE_PART_SIGNED_IN : TAKE_PART_SIGNED_OUT];
+
   return (
     <footer className="bg-ink text-mist">
       <div className="mx-auto max-w-6xl px-6 py-12">
@@ -51,7 +75,7 @@ export function SiteFooter() {
             </p>
           </div>
 
-          {COLUMNS.map((column) => (
+          {columns.map((column) => (
             <div key={column.heading}>
               <p className="label text-mist/45">{column.heading}</p>
               <ul className="mt-4 space-y-2.5">

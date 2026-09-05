@@ -9,23 +9,20 @@ import { signOut } from "@/app/auth/actions";
 /**
  * The narrow-screen nav: three lines that open a full-height panel.
  *
- * Exists because the header ran out of room. Below sm it was showing the
- * wordmark, one nav link and a sign-in pill, having already dropped
- * /contribute and Profile to make space, so the two links a signed-in
- * contributor most needs were the two that disappeared. A panel has room for
- * all of them.
+ * Exists because the header ran out of room: below sm it was showing the
+ * wordmark, one nav link and a sign-in pill, having dropped everything else to
+ * fit. The panel holds the whole nav instead.
  *
- * The auth state is passed in rather than read here: SiteHeader is an async
- * server component and does that query once, and this needs to be a client
- * component only because a disclosure has state.
+ * `links` arrives already chosen for the signed-in state, so this component
+ * does not know or care which set it is rendering. SiteHeader is an async
+ * server component and makes that decision once; this is a client component
+ * only because a disclosure has state.
  */
 export function MobileNav({
   links,
-  username,
   signedIn,
 }: {
   links: { href: string; label: string }[];
-  username: string | null;
   signedIn: boolean;
 }) {
   const pathname = usePathname();
@@ -101,24 +98,14 @@ export function MobileNav({
               ))}
 
               {signedIn ? (
-                <>
-                  {username && (
-                    <Link
-                      href={`/u/${username}`}
-                      className="font-display text-3xl leading-none font-medium text-ink"
-                    >
-                      Profile
-                    </Link>
-                  )}
-                  <form action={signOut}>
-                    <button
-                      type="submit"
-                      className="label rounded-full border border-ink/25 px-6 py-3.5 text-ink"
-                    >
-                      Sign out
-                    </button>
-                  </form>
-                </>
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className="label rounded-full border border-ink/25 px-6 py-3.5 text-ink"
+                  >
+                    Sign out
+                  </button>
+                </form>
               ) : (
                 <Link
                   href="/login"

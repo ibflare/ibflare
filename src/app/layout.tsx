@@ -4,6 +4,7 @@ import "./globals.css";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ConditionalHeader } from "@/components/ConditionalHeader";
 import { ConditionalFooter } from "@/components/ConditionalFooter";
+import { SiteFooter } from "@/components/SiteFooter";
 
 // Didone display face, matching the wordmark. CLAUDE.md §8.
 const bodoni = Bodoni_Moda({
@@ -100,7 +101,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           for. Pages with real content push it further down as normal.
         */}
         <main className="min-h-[calc(100vh-4rem)]">{children}</main>
-        <ConditionalFooter />
+        <ConditionalFooter>
+          <SiteFooter />
+        </ConditionalFooter>
       </body>
     </html>
   );

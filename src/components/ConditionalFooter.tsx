@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { SiteFooter } from "./SiteFooter";
 
 /**
  * The footer is a site-wide navigation surface. On the pages where you are in
@@ -12,12 +11,28 @@ import { SiteFooter } from "./SiteFooter";
  */
 const BARE = ["/login", "/onboarding", "/auth", "/account-unavailable"];
 
-export function ConditionalFooter() {
+/**
+ * Takes SiteFooter as children rather than importing it, mirroring
+ * ConditionalHeader.
+ *
+ * It used to import it directly, which was fine while the footer was static.
+ * The moment the footer needed the session it became an async server component
+ * reading next/headers, and a client component cannot render one of those: the
+ * build fails with "you are using it in the Pages Router", which is a
+ * confusing way to say the child got treated as client code. Passing it in
+ * from the server layout keeps it on the server and leaves this component
+ * doing the one thing it needs the pathname for.
+ */
+export function ConditionalFooter({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
 
   const bare = BARE.some(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
   );
 
-  return bare ? null : <SiteFooter />;
+  return bare ? null : children;
 }

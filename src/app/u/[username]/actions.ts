@@ -7,10 +7,16 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Profile picture upload and removal.
  *
- * Gated on can_post, in the database as well as here: the storage policies in
- * 20260903010000 check the capability and the suspension state themselves, so
- * a direct call to the storage API with the anon key is refused the same way.
- * This action is the convenient path, not the only guard.
+ * Open to any onboarded, unsuspended account since 20260904010000. It was
+ * limited to can_post at first, on the reasoning that a user-supplied image is
+ * a moderation surface; that reasoning did not go away, it is answered by
+ * clearUserAvatar below instead, which gives a moderator a way to take a bad
+ * picture down.
+ *
+ * The checks here are duplicated in the database, not replaced by it: the
+ * storage policies test the same onboarded and suspension state, so a direct
+ * call to the storage API with the anon key is refused the same way. This
+ * action is the convenient path, not the only guard.
  */
 
 export type AvatarState = { error: string | null };
@@ -47,8 +53,8 @@ function sniff(buf: Buffer): "jpeg" | "png" | "webp" | null {
   return null;
 }
 
-/** The caller, plus the checks both actions share. */
-async function contributor() {
+/** The caller, plus the checks the two self-service actions share. */
+async function owner() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -60,7 +66,7 @@ async function contributor() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, can_post, suspended_at")
+    .select("username, onboarded, suspended_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -68,19 +74,14 @@ async function contributor() {
     return { ok: false as const, error: "We could not find your profile." };
   }
 
+  if (!profile.onboarded) {
+    return { ok: false as const, error: "Finish setting up your account first." };
+  }
+
   if (profile.suspended_at) {
     return {
       ok: false as const,
       error: "Your account is suspended, so you cannot change your picture.",
-    };
-  }
-
-  if (!profile.can_post) {
-    // Not reachable from the UI, which renders no control without can_post.
-    // Reachable by calling this action directly, so it is answered here too.
-    return {
-      ok: false as const,
-      error: "Changing your picture is limited to contributors.",
     };
   }
 
@@ -91,7 +92,7 @@ export async function uploadAvatar(
   _prev: AvatarState,
   formData: FormData,
 ): Promise<AvatarState> {
-  const who = await contributor();
+  const who = await owner();
   if (!who.ok) return { error: who.error };
   const { supabase, user, username } = who;
 
@@ -191,7 +192,7 @@ export async function uploadAvatar(
  * shape is what no-unused-vars is for.
  */
 export async function removeAvatar(): Promise<AvatarState> {
-  const who = await contributor();
+  const who = await owner();
   if (!who.ok) return { error: who.error };
   const { supabase, user, username } = who;
 
@@ -215,5 +216,68 @@ export async function removeAvatar(): Promise<AvatarState> {
   await supabase.storage.from(BUCKET).remove([`${user.id}/${OBJECT}`]);
 
   revalidatePath(`/u/${username}`);
+  return { error: null };
+}
+
+/**
+ * A moderator clearing someone else's picture.
+ *
+ * The counterweight to opening uploads to everyone. Before this, the only
+ * person who could take an image down was the person who put it up, so a bad
+ * picture had no route off the site short of the SQL editor.
+ *
+ * The capability is checked by clear_avatar() in the database, not here.
+ * avatar_url on another person's row is not writable by anyone, since the
+ * update policy on profiles is owner-only, so that definer function is the
+ * whole mechanism and it does its own check and writes the audit_log row. The
+ * check below is only so the UI can say something useful before the round trip.
+ */
+export async function clearUserAvatar(
+  _prev: AvatarState,
+  formData: FormData,
+): Promise<AvatarState> {
+  const targetId = String(formData.get("target_id") ?? "");
+  const targetUsername = String(formData.get("target_username") ?? "");
+
+  if (!targetId || !targetUsername) {
+    return { error: "We could not tell which account that was." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "You need to be signed in to do that." };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("can_moderate")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!me?.can_moderate) {
+    return { error: "Removing someone else's picture requires moderator permission." };
+  }
+
+  const { error: rpcError } = await supabase.rpc("clear_avatar", {
+    p_target: targetId,
+    p_reason: "Removed from the profile page.",
+  });
+
+  if (rpcError) {
+    return { error: `We could not remove that image: ${rpcError.message}` };
+  }
+
+  /*
+   * The object, after the column. clear_avatar cannot reach the storage API
+   * from SQL, so this is the second half, permitted by the moderator branch of
+   * the delete policy. If it fails the object is orphaned but unreferenced,
+   * which is harmless: nothing renders it and the owner's next upload
+   * overwrites it.
+   */
+  await supabase.storage.from(BUCKET).remove([`${targetId}/${OBJECT}`]);
+
+  revalidatePath(`/u/${targetUsername}`);
   return { error: null };
 }

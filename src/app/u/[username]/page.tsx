@@ -3,6 +3,7 @@ import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { publicTag, type PublicProfile } from "@/lib/profiles";
 import { Avatar } from "@/components/Avatar";
 import { AvatarEditor } from "./AvatarEditor";
+import { ModeratorAvatarControl } from "./ModeratorAvatarControl";
 
 /**
  * Public profile.
@@ -46,16 +47,20 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
   const tag = publicTag(profile.role, profile.title);
 
   /*
-   * The editor is for the owner of this profile, and only if they can post.
-   * A user-supplied image is a moderation surface, and contributors are a
-   * known group, so viewers keep the Google picture the signup trigger stored
-   * and get no control. Section 2.
+   * Two different controls, and neither is what enforces anything: the storage
+   * policies and clear_avatar() do that.
    *
-   * This is the display decision only. The storage policies check the same
-   * capability, so hiding the control is not what enforces it.
+   * canEdit  the owner, changing their own picture. Any onboarded account
+   *          since 20260904010000, where it used to require can_post.
+   * canClear a moderator, taking someone else's picture down. The counterweight
+   *          to the above: opening uploads to everyone widens the moderation
+   *          surface, so there has to be a way to remove an image. Section 2.
    */
   const viewer = await getCurrentProfile();
-  const canEdit = viewer?.id === profile.id && viewer?.can_post === true;
+  const isOwner = viewer?.id === profile.id;
+  const canEdit = isOwner && viewer?.onboarded === true;
+  const canClear =
+    !isOwner && viewer?.can_moderate === true && profile.avatar_url !== null;
 
   return (
     <section>
@@ -89,6 +94,14 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
               <p className="mt-7 max-w-xl leading-relaxed text-ink/75">
                 {profile.bio}
               </p>
+            )}
+
+            {canClear && (
+              <ModeratorAvatarControl
+                targetId={profile.id}
+                targetUsername={profile.username}
+                displayName={profile.display_name}
+              />
             )}
           </div>
         </div>
