@@ -96,15 +96,10 @@ export default async function LibraryPage(props: PageProps<"/library">) {
         <h1 className="font-display text-4xl leading-[1.1] font-medium text-balance sm:text-5xl">
           Library
         </h1>
-        <p className="mt-6 max-w-xl leading-relaxed text-ink/70">
-          Every video, with the level it assumes. If one takes something for
-          granted that you have not learned yet, look for a lower number on the
-          same topic.
-        </p>
 
         {/* A plain GET form, so search works with no JavaScript and the URL
             stays shareable. */}
-        <form action="/library" method="get" className="mt-10 flex max-w-lg gap-3">
+        <form action="/library" method="get" className="mt-8 flex max-w-lg gap-3">
           {difficulty && <input type="hidden" name="difficulty" value={difficulty} />}
           {topic && <input type="hidden" name="topic" value={topic} />}
           <input
@@ -242,8 +237,20 @@ function Filter({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
-      <span className="label w-16 shrink-0 text-ink/45">{label}</span>
+    /*
+     * items-start, not items-center. The topic pills wrap to two rows, and
+     * centring put the label halfway down the group, level with the gap
+     * between rows instead of with anything.
+     *
+     * The label then needs pushing down to meet the first row's text: a pill
+     * is 1px of border plus 10px of padding above its own label, and both use
+     * the same 11px type at line-height 1, so matching that offset lines the
+     * two baselines up rather than the two boxes.
+     */
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-5">
+      <span className="label w-16 shrink-0 text-ink/45 sm:pt-[11px]">
+        {label}
+      </span>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );

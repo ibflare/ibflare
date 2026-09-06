@@ -107,27 +107,40 @@ and who to talk to. Their existing videos and comments stay up unless separately
 - The suspend dialog offers a checkbox: "Also delete this person's comments." One click, soft-deleted,
   logged.
 
-Suspend is reversible and is the default response. Deleting an account is not offered in the UI —
-if it's ever genuinely needed, it happens in the SQL editor with a sponsor present.
+Suspend is reversible and is the default response. Deleting an account is not offered in the UI. For
+a regular account it happens in the SQL editor with a sponsor present, and it works normally.
 
-> **That escape hatch does not currently work for anyone who has ever moderated anything**, and it
-> fails in a confusing way. `audit_log.actor_id` references `profiles` with no `ON DELETE` clause,
-> so deleting the `auth.users` row cascades to `profiles` and is then refused with `23503`,
-> "key is still referenced from table audit_log". Found by deleting a throwaway moderator account
-> after a verification run.
+### An account that has written to `audit_log` cannot be deleted, and that is intentional
+
+`audit_log.actor_id` references `profiles` with no `ON DELETE` clause. Deleting the `auth.users` row
+cascades to `profiles` and is then refused with `23503`, "key is still referenced from table
+audit_log". `profiles.suspended_by` and `videos.deleted_by` are the same by the same decision.
+
+**Decided, not inherited.** The alternative was `on delete set null`, which keeps the log entry and
+drops the actor. That was rejected: a moderation record that says something was deleted but not who
+deleted it is most of the way to no record at all, and the moment it matters most is exactly the
+moment someone would want the name gone. So the log stays fully attributed and the accounts named in
+it stay put.
+
+What follows from it:
+
+- **Officers and sponsors are suspended and retitled, never deleted.** §2 already prefers that: the
+  end-of-term path is unticking the capability boxes and setting the title to "Former Vice
+  President", which keeps the person, their account, and the attribution on everything they did.
+- **A regular account deletes normally.** Viewers and members never write to `audit_log`, so nothing
+  references them and the cascade completes. The constraint only bites once someone has acted as a
+  moderator.
+- **Granting `can_moderate` is therefore a one-way door in practice.** The first moderation action
+  that account takes makes it permanent.
+
+> **Phase 4's `/dashboard/admin/people` has to say this at the moment of granting.** A sponsor
+> ticking "Can edit and delete other people's videos" is also deciding that the account can never be
+> deleted, and nothing on that screen currently conveys it. One line under the checkbox, in the same
+> plain language as the rest of the page: once this person moderates anything, their account can be
+> suspended but not deleted, so the record of what they did stays attributed.
 >
-> The fix is a design decision, not a typo, which is why it is recorded rather than applied:
->
-> - `on delete set null` keeps the log entry and loses the actor. The record of *what happened*
->   survives; the record of *who did it* does not, which is most of the value.
-> - Leaving it means audit history pins accounts in place. Defensible, arguably correct: a
->   moderation log you can erase by deleting the moderator is not much of a log. But then §2's
->   sentence above is wrong and the real answer is that officers cannot be deleted, only suspended
->   and retitled, which §2 already prefers anyway.
->
-> `profiles.suspended_by` and `videos.deleted_by` have the same shape and will behave the same way.
-> Decide before phase 4 builds the tools that write these rows, because every row written before the
-> decision inherits it.
+> It belongs at the point of the decision rather than in a help page, because the sponsor doing this
+> is a teacher who will not read a help page and should not have to.
 
 ### Succession and lockout
 
@@ -347,7 +360,8 @@ otherwise see it as sloppy schema design and normalise it away:
   is exactly the case where the record matters most, and it is exactly the case where every
   reference-based record disappears.
 - `audit_log.actor_id` is the one FK that does not cascade, which is why the log outlives the rows
-  it describes. See the note in §2 about what that means for deleting an account.
+  it describes. That is a decision rather than an oversight, and §2 records what it costs: an
+  account that has written to the log cannot be deleted at all.
 
 Write the row inside the same transaction as the soft delete, in a definer function, so a delete
 cannot succeed without its record.
@@ -859,6 +873,19 @@ Most users are minors. Hard constraints, not preferences.
 
    Whoever reviews the legal documents needs this in front of them, since it is the one place where
    the site keeps a minor's words after that minor has asked to be gone.
+
+   **A second thing for the same review: `/terms` promises a deletion right the site will not
+   honour for officers.** It currently says an account can be deleted on request by emailing us.
+   §2's decision means that is untrue for anyone who has ever moderated anything: their account can
+   be suspended and retitled but not removed, because `audit_log` keeps the moderation record fully
+   attributed and references them.
+
+   The gap is narrow and the reasoning is defensible, but the sentence as written is a promise to
+   every reader. Wording is **pending a review the client is doing with the faculty sponsor**, so it
+   has deliberately not been rewritten here. Whatever it becomes has to be true of officers as well
+   as of viewers, and the honest version says who is affected rather than burying it: someone
+   agreeing to moderate should understand it before they accept the role, not when they ask to
+   leave.
 7. **Profile pictures ship with a takedown path or they don't ship.** Uploading is open to every
    onboarded account as of `20260904010000`, which means the site now accepts arbitrary images from
    minors. That is only defensible because `can_moderate` can clear anyone's picture and the removal
