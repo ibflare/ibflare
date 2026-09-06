@@ -50,22 +50,15 @@ as $$
   );
 $$;
 
-create or replace function public.is_collaborator(p_video uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select exists (
-    select 1 from public.video_collaborators vc
-    where vc.video_id = p_video and vc.profile_id = (select auth.uid())
-  );
-$$;
-
 comment on function public.owns_video(uuid) is
   'Whether the caller owns this video. Definer, to keep video_collaborators '
   'policies from recursing into videos policies and back.';
+
+-- is_collaborator is the third of these and is defined further down, after the
+-- table it reads. It cannot live here with its siblings: a `language sql` body
+-- is parsed and its objects resolved at creation time, unlike plpgsql, so
+-- declaring it before video_collaborators exists fails with 42P01. The two
+-- above only touch videos, which already exists by this point.
 
 -- ===========================================================================
 -- video_collaborators
@@ -292,6 +285,26 @@ $$;
 
 revoke all on function public.remove_collaborator(uuid, uuid) from public;
 grant execute on function public.remove_collaborator(uuid, uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- is_collaborator
+-- ---------------------------------------------------------------------------
+-- The third recursion-breaking helper, placed here rather than with the other
+-- two because a `language sql` body is validated when the function is created:
+-- video_collaborators has to exist first.
+
+create or replace function public.is_collaborator(p_video uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.video_collaborators vc
+    where vc.video_id = p_video and vc.profile_id = (select auth.uid())
+  );
+$$;
 
 -- ===========================================================================
 -- videos: the invitee needs to see what they were invited to
