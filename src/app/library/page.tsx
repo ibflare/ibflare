@@ -62,7 +62,7 @@ export default async function LibraryPage(props: PageProps<"/library">) {
   let query = supabase
     .from("public_videos")
     .select(
-      "id, title, description, youtube_id, thumbnail_url, duration_s, difficulty, topic, published_at, owner_username, owner_display_name, owner_avatar_url",
+      "id, title, description, youtube_id, thumbnail_url, duration_s, difficulty, topic, published_at, owner_username, owner_display_name, owner_avatar_url, collaborators",
       { count: "exact" },
     );
 

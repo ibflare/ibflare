@@ -27,6 +27,17 @@ const NAV_SIGNED_IN = [
 ];
 
 /**
+ * Profile is back, as a fourth item for signed-in accounts only.
+ *
+ * It was dropped when the nav split by session, which left a member with no
+ * route from the chrome to their own profile: the page their picture upload
+ * lives on, and the page phase 4's moderator control sits on. It needs the
+ * username, so the header pays for one profile lookup per signed-in request
+ * again, and now uses the same row for the suspension banner rather than
+ * querying twice.
+ */
+
+/**
  * Uses FLARE_WORDMARK.png, the full lockup cropped to just the wordmark
  * (generated from FLARE_LOGO.png with the tagline band removed). The tagline
  * in the full logo is ~25px tall in a 724px-tall file, so at header height it
@@ -38,17 +49,31 @@ export async function SiteHeader() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const nav = user ? NAV_SIGNED_IN : NAV_SIGNED_OUT;
+  let username: string | null = null;
+  let suspended = false;
 
-  /*
-   * No username lookup any more. The header used to fetch it for a Profile
-   * link, and dropping that link from the nav made the query dead weight: one
-   * database round trip on every request, for nothing.
-   *
-   * The cost of dropping the link is that a signed-in member now has no route
-   * to their own profile from the chrome, and that is where the picture upload
-   * lives. Worth revisiting.
-   */
+  if (user) {
+    /*
+     * The base table, not public_profiles, because suspended_at is not in the
+     * view and should not be: it is nobody else's business. The owner select
+     * policy is what allows this, so it only ever returns the caller's row.
+     */
+    const { data } = await supabase
+      .from("profiles")
+      .select("username, suspended_at")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    username = data?.username ?? null;
+    suspended = Boolean(data?.suspended_at);
+  }
+
+  const nav = [
+    ...(user ? NAV_SIGNED_IN : NAV_SIGNED_OUT),
+    ...(user && username
+      ? [{ href: `/u/${username}`, label: "Profile" }]
+      : []),
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink/10 bg-paper/85 backdrop-blur-sm">
@@ -103,6 +128,31 @@ export async function SiteHeader() {
           <MobileNav links={nav} signedIn={Boolean(user)} />
         </div>
       </div>
+
+      {/*
+        Section 2: a suspended user sees a banner explaining they have been
+        suspended and who to talk to.
+
+        In the header rather than a page, because nothing redirects a suspended
+        account anywhere. They keep browsing the site, so the notice has to
+        travel with them, and it sits inside the sticky header so it cannot be
+        scrolled past and forgotten.
+      */}
+      {suspended && (
+        <div className="border-t border-mist/15 bg-ink text-mist">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-5 py-2.5 sm:px-6">
+            <p className="text-sm">
+              Your account is suspended. You can still watch.
+            </p>
+            <Link
+              href="/suspended"
+              className="label underline decoration-mist/40 underline-offset-4 transition-colors hover:decoration-mist"
+            >
+              What this means
+            </Link>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

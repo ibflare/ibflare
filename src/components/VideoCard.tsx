@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Avatar } from "./Avatar";
 import { DIFFICULTY_LEVELS, TOPIC_LABELS, difficultyAccent } from "@/lib/taxonomy";
 import { formatDuration } from "@/lib/youtube";
+import { formatByline, readCollaborators } from "@/lib/byline";
 import type { Topic } from "@/lib/taxonomy";
 
 export type VideoRow = {
@@ -18,6 +19,8 @@ export type VideoRow = {
   owner_username: string;
   owner_display_name: string;
   owner_avatar_url: string | null;
+  /** jsonb from public_videos: accepted collaborators only. */
+  collaborators?: unknown;
 };
 
 /**
@@ -31,6 +34,10 @@ export type VideoRow = {
 export function VideoCard({ video }: { video: VideoRow }) {
   const level = DIFFICULTY_LEVELS.find((l) => l.level === video.difficulty);
   const duration = formatDuration(video.duration_s);
+  const byline = formatByline(
+    video.owner_display_name,
+    readCollaborators(video.collaborators),
+  );
 
   return (
     /*
@@ -93,9 +100,7 @@ export function VideoCard({ video }: { video: VideoRow }) {
             px={28}
             className="size-7"
           />
-          <span className="truncate text-sm text-ink/55">
-            {video.owner_display_name}
-          </span>
+          <span className="truncate text-sm text-ink/55">{byline}</span>
         </div>
       </div>
     </Link>

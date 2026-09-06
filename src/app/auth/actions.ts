@@ -121,6 +121,26 @@ export async function signUpWithEmail(
   const supabase = await createClient();
   const origin = await siteOrigin();
 
+  /*
+   * The courtesy check, not the gate. handle_new_user refuses to create a
+   * profile while signups are off, which rolls back the auth.users insert, but
+   * Supabase reports that as a generic failure. Reading the switch here is what
+   * lets the page say what actually happened.
+   */
+  const { data: settings } = await supabase
+    .from("site_settings")
+    .select("signups_enabled")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (settings && settings.signups_enabled === false) {
+    return {
+      error: "FLARE is not accepting new accounts right now. Ask an officer.",
+      checkInbox: false,
+      email,
+    };
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,

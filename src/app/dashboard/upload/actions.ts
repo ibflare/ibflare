@@ -22,6 +22,7 @@ export type UploadState = {
     description: string;
     difficulty: string;
     topic: string;
+    collaborators: string;
   };
 };
 
@@ -37,6 +38,7 @@ export async function createVideo(
     description: String(formData.get("description") ?? "").trim(),
     difficulty: String(formData.get("difficulty") ?? ""),
     topic: String(formData.get("topic") ?? ""),
+    collaborators: String(formData.get("collaborators") ?? "").trim(),
   };
   const release = formData.get("release") === "on";
 
@@ -120,27 +122,60 @@ export async function createVideo(
     return { errors: { url: resolved.message }, values };
   }
 
-  const { error } = await supabase.from("videos").insert({
-    title: values.title,
-    description: values.description || null,
-    youtube_id: resolved.video.youtubeId,
-    thumbnail_url: resolved.video.thumbnailUrl,
-    duration_s: resolved.video.durationS,
-    difficulty: Number(values.difficulty),
-    topic: values.topic,
-    owner_id: user.id,
-    status: "published",
-    release_ok: true,
-    published_at: new Date().toISOString(),
-  });
+  const { data: created, error } = await supabase
+    .from("videos")
+    .insert({
+      title: values.title,
+      description: values.description || null,
+      youtube_id: resolved.video.youtubeId,
+      thumbnail_url: resolved.video.thumbnailUrl,
+      duration_s: resolved.video.durationS,
+      difficulty: Number(values.difficulty),
+      topic: values.topic,
+      owner_id: user.id,
+      status: "published",
+      release_ok: true,
+      published_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
 
-  if (error) {
+  if (error || !created) {
     return {
-      errors: { form: `We could not publish that: ${error.message}` },
+      errors: { form: `We could not publish that: ${error?.message ?? "unknown error"}` },
       values,
     };
   }
 
+  /*
+   * Tags, after the insert, because an invitation needs a video_id.
+   *
+   * Failures are swallowed on purpose. The video is already published by this
+   * point, so returning an error would leave the form up next to a video that
+   * exists, and resubmitting would publish it twice. A username that did not
+   * resolve is instead visible by its absence on the dashboard, which is where
+   * this redirects and which has a tag editor that reports each name properly.
+   */
+  const usernames = values.collaborators
+    .split(/[,\s]+/)
+    .map((name) => name.trim().toLowerCase().replace(/^@/, ""))
+    .filter(Boolean)
+    .slice(0, 10);
+
+  for (const username of [...new Set(usernames)]) {
+    await supabase.rpc("invite_collaborator", {
+      p_video: created.id,
+      p_username: username,
+    });
+  }
+
   revalidatePath("/library");
-  redirect("/library");
+  revalidatePath("/dashboard");
+
+  /*
+   * The dashboard, not the library. They have just published something and the
+   * next thing they want is to see it listed with its tags, not to hunt for it
+   * among twelve cards.
+   */
+  redirect("/dashboard");
 }

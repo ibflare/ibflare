@@ -14,7 +14,14 @@ import { formatDuration } from "@/lib/youtube";
 
 const EMPTY: UploadState = {
   errors: {},
-  values: { url: "", title: "", description: "", difficulty: "", topic: "" },
+  values: {
+    url: "",
+    title: "",
+    description: "",
+    difficulty: "",
+    topic: "",
+    collaborators: "",
+  },
 };
 
 type Resolved = {
@@ -255,6 +262,28 @@ export function UploadForm() {
             {state.errors.topic}
           </p>
         )}
+      </div>
+
+      <div>
+        <label htmlFor="collaborators" className="label block text-ink/60">
+          Anyone you made it with
+        </label>
+        <p id="collaborators-hint" className="mt-2 text-sm leading-relaxed text-ink/55">
+          Usernames, separated by commas. They each get a tag to accept, and
+          their name joins the byline once they do. You can change this later
+          from your dashboard.
+        </p>
+        <input
+          id="collaborators"
+          name="collaborators"
+          type="text"
+          defaultValue={state.values.collaborators}
+          autoComplete="off"
+          spellCheck={false}
+          aria-describedby="collaborators-hint"
+          placeholder="maya_r, andre_l"
+          className="mt-3 w-full rounded-lg border border-ink/25 bg-paper px-4 py-3 text-ink"
+        />
       </div>
 
       {/*

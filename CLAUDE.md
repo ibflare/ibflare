@@ -133,14 +133,15 @@ What follows from it:
 - **Granting `can_moderate` is therefore a one-way door in practice.** The first moderation action
   that account takes makes it permanent.
 
-> **Phase 4's `/dashboard/admin/people` has to say this at the moment of granting.** A sponsor
-> ticking "Can edit and delete other people's videos" is also deciding that the account can never be
-> deleted, and nothing on that screen currently conveys it. One line under the checkbox, in the same
-> plain language as the rest of the page: once this person moderates anything, their account can be
-> suspended but not deleted, so the record of what they did stays attributed.
+> **Built in phase 4.** `/dashboard/admin/people` says this at the moment of granting: ticking "Can
+> edit and delete other people's videos" reveals a line under the checkbox saying that once this
+> person moderates anything their account can be suspended but not deleted, so the record of what
+> they did stays attributed.
 >
-> It belongs at the point of the decision rather than in a help page, because the sponsor doing this
-> is a teacher who will not read a help page and should not have to.
+> It appears only on the transition, when the box is being ticked and was not already ticked. A
+> warning that is always on screen is furniture; one that appears in response to the click is about
+> the decision being made. It belongs at the point of the decision rather than in a help page,
+> because the sponsor doing this is a teacher who will not read a help page and should not have to.
 
 ### Succession and lockout
 
@@ -450,13 +451,17 @@ RLS on every table. Write `has_capability(cap text)` as a `SECURITY DEFINER` fun
 > private columns are absent from this view rather than merely unrendered.
 - **videos** — `status='published' AND deleted_at IS NULL` readable by anon. Insert requires
   `auth.uid() = owner_id AND can_post`. Update/delete for the owner or `can_moderate`.
-- **video_collaborators** — readable when the parent video is public, or by owner/invitee. Insert by
-  the video owner. Update (accept/decline) by the invitee, on their own row only.
+- **video_collaborators** — readable when the parent video is public and the row is `accepted`, or
+  by the owner, the invitee, or a moderator. **No write policies and no write grants:** insert,
+  accept, decline and untag all go through the definer functions in `20260906000000`. See the phase
+  4 status note for why relationship rules do not fit column grants.
 - **comments** — non-deleted comments on published videos readable by anon. Insert by any onboarded
   user. Update own within 5 minutes; delete own, or any with `can_moderate`.
 - **reports / audit_log** — readable only with `can_moderate`. Insert on `reports` by any signed-in user.
-- **site_settings** — readable by anon (the app needs to know if comments are on). Update requires
-  `can_manage_users`.
+- **site_settings** — readable by anon (the app needs to know if comments are on). **No update
+  policy and no update grant:** `set_site_settings` is the only path, so every flip is audited and
+  `updated_by` cannot be forged. A kill switch nobody can attribute is a kill switch nobody is
+  accountable for.
 - **storage.objects, `avatars` bucket** — public read. Insert and update require the object path to
   open with the caller's own uid, plus `is_onboarded()` and `suspended_at IS NULL`. Delete is the
   asymmetric one: your own folder on those same terms, **or** any folder with `can_moderate`.
@@ -648,10 +653,16 @@ is why it is an async server component now rather than a static one.
 > render one of those: the build fails with "you are using it in the Pages Router", which is a
 > confusing way to say the child was treated as client code.
 
-> **Profile is no longer in the nav**, on the client's instruction, and the cost is worth recording:
-> a signed-in member now has no route from the chrome to their own profile, which is where the
-> picture upload lives. The header's username lookup was removed with it, since it existed only to
-> build that link.
+> **Profile was dropped from the nav and is back as of phase 4**, as a fourth item for signed-in
+> accounts only. Dropping it left a member with no route from the chrome to their own profile, which
+> is where the picture upload lives and where the moderator takedown control sits, so the only way
+> there was typing the URL. The header pays for one profile lookup per signed-in request again, and
+> reads `suspended_at` from the same row rather than querying twice.
+
+> **The suspension banner lives in the header.** Section 2 says a suspended user sees a banner
+> explaining what happened and who to talk to. Nothing redirects them: they can still sign in and
+> watch, so the notice has to travel with them across every page, which means the chrome rather than
+> a page. It sits inside the sticky header so it cannot be scrolled past.
 
 **Below `sm` the header is a centred wordmark and a three-line button.** `MobileNav` opens a
 full-height `paper` panel holding every nav link, Profile, and the sign-in or sign-out control. It
@@ -1084,6 +1095,95 @@ Decisions worth knowing:
 Deferred to phase 4 by design, not oversight: collaborators and the multi-name byline, the admin
 surfaces, and the soft-delete path. Comments on `/v/[id]` are phase 5 and ship with the moderation
 stack or not at all.
+
+### Phase 4 status
+
+Built: `supabase/migrations/20260906000000_collaboration_and_admin.sql`, `src/lib/byline.ts`,
+`/dashboard` with its layout, `/dashboard/admin`, `/dashboard/admin/people`,
+`/dashboard/admin/log`, `/dashboard/admin/settings`, and `/suspended`.
+
+**Every write in this phase goes through a definer function.** `invite_collaborator`,
+`respond_to_invite`, `remove_collaborator`, `suspend_user`, `unsuspend_user`, `set_site_settings`,
+`soft_delete_video` and `restore_video`. `video_collaborators` and `site_settings` have SELECT
+policies and SELECT grants and nothing else.
+
+> That is a departure from the profiles pattern, where writes are restricted by column grant, and
+> the reason is what the rules are about. On `profiles` they are about columns: `role` is writable
+> or it is not. Here they are about relationships and transitions: who owns the parent video,
+> whether the target is the owner themselves, whether an invitation is still pending, whether the
+> target of a suspension is an officer. None of that is expressible as a column privilege, and
+> expressing it as a policy would mean trusting the client to send a sensible `status`. A function
+> with no write grant behind it is the smaller surface, and it is also the only way to guarantee the
+> `audit_log` row is written in the same transaction as the thing it records.
+
+Decisions worth knowing:
+
+- **Three definer helpers exist to break RLS recursion, not to save typing.** An invitee has to be
+  able to read a video they were tagged on, including a draft, so `videos` needs a policy that
+  consults `video_collaborators`; that table needs policies that consult `videos` for ownership and
+  publication. Written directly, the two policy sets recurse into each other. `owns_video`,
+  `video_is_public` and `is_collaborator` run outside the caller's RLS and break the cycle, exactly
+  as `has_capability` does for `profiles`.
+- **`public_videos` now aggregates the byline.** `collaborators` is a jsonb array of accepted
+  collaborators, built by a correlated subquery in the view. Aggregated there rather than fetched
+  per card, because `/library` renders twelve at a time and a query per card is the N+1 that makes
+  a list page slow.
+- **The card counts, the video page names.** A library card shows `Maya R. + 2 others` per section
+  3; `/v/[id]` lists every accepted collaborator with a link to each profile. A co-author who is
+  only ever "+ 2 others" is not really credited, and the page has the room. The card cannot link
+  them anyway: the whole card is one link, and a link inside a link is invalid.
+- **Names on the dashboard come from a second query, not an embed.** The base `profiles` table is
+  readable only for your own row, so `videos(..., profiles(display_name))` returns null for
+  everyone else. Names live in `public_profiles`, and a view has no foreign key for PostgREST to
+  follow, so the join happens in the page.
+- **`search_people` and `read_audit_log` are definer functions for the same kind of reason.** The
+  people page has to match on email, which lives in `auth.users` and is readable by no client role
+  at all; the log has to show the actor's name, and a moderator without `can_manage_users` cannot
+  read another person's profile row. Without these two functions the sponsor's search cannot use the
+  one identifier a teacher reliably knows, and the log reads "somebody did something".
+- **`search_people` is gated on `can_manage_users`, not `can_moderate`.** Section 9's table puts
+  email in reach of officers too. This is deliberately the tighter of the two: an email list of
+  minors is worth handing to fewer people rather than more.
+- **The admin pages `notFound()` rather than explaining.** A member who guesses `/dashboard/admin`
+  learns nothing from a 404. "You do not have permission to moderate" confirms the page exists and
+  tells them what to ask for.
+- **Deleting a video requires a reason from a moderator and not from the owner.** An owner removing
+  their own video is editing; a moderator removing someone else's is a decision that has to be
+  legible in the log six months later, so the button stays disabled until the field is filled.
+- **Restore is moderator-only.** An owner who deletes their own video asks an officer to put it
+  back, which leaves a record of both halves rather than letting a video flicker in and out of the
+  library unlogged.
+- **A suspended moderator can still clear an avatar and lift nothing.** Suspension stops
+  contributing, and taking a bad image down is not contributing. Suspending is still gated on the
+  capability, and lifting a suspension needs `can_manage_users` whoever applied it, so a moderator
+  can stop a spammer but cannot undo a sponsor's call.
+- **Nobody can suspend themselves.** For a sole sponsor that would lock the club out of its own
+  profile editing, and it is never the intent.
+
+> **`signups_enabled` is enforced in the signup trigger, and it has to be.** An account is created
+> through the auth API rather than through PostgREST, so there is no policy and no grant standing in
+> front of it and an app-layer check is one the client could skip. `handle_new_user` now raises when
+> the switch is off, which rolls back the `auth.users` insert, so no account is created at all. The
+> cost is the message: Supabase reports a trigger exception as a generic signup failure, so
+> `signUpWithEmail` also reads the switch in order to say something useful. That read is the
+> courtesy; the trigger is the gate.
+>
+> `comments_enabled` will be enforced by the comments insert policy in phase 5, which can be a
+> policy because a comment is an ordinary table write.
+
+> **Profile editing was the one part of suspension that was never enforced.** Section 2 says a
+> suspended user cannot edit their profile, and the owner update policy checked only that the row
+> belonged to the caller. It now checks `is_suspended()` as well. `attest_age`, `accept_terms` and
+> `clear_avatar` are unaffected, being definer functions, so a suspended account can still finish
+> onboarding and a moderator can still clear a suspended person's picture.
+
+> **`/suspended` is not a wall and nothing redirects to it.** Section 2 is explicit that a suspended
+> user can still sign in and watch. The proxy knows nothing about suspension; the page is reached
+> from the header banner, and the restrictions are enforced in the database rather than by routing.
+
+Deferred to phase 5, by design: comments, the moderation filter, the report button, the officer
+queue at `/dashboard/admin/reports`, and the comment rate limit. `/dashboard/admin` leaves a place
+for reported comments to land.
 
 ### Media assets
 

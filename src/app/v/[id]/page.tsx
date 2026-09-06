@@ -11,6 +11,7 @@ import {
   type Topic,
 } from "@/lib/taxonomy";
 import { formatDuration } from "@/lib/youtube";
+import { readCollaborators } from "@/lib/byline";
 
 /**
  * A video page. Public: viewing does not require an account.
@@ -35,6 +36,7 @@ type VideoDetail = {
   owner_title: string | null;
   owner_avatar_url: string | null;
   owner_role: string;
+  collaborators: unknown;
 };
 
 /**
@@ -51,7 +53,7 @@ async function getVideo(id: string): Promise<VideoDetail | null> {
   const { data } = await supabase
     .from("public_videos")
     .select(
-      "id, title, description, youtube_id, thumbnail_url, duration_s, difficulty, topic, published_at, owner_username, owner_display_name, owner_title, owner_avatar_url, owner_role",
+      "id, title, description, youtube_id, thumbnail_url, duration_s, difficulty, topic, published_at, owner_username, owner_display_name, owner_title, owner_avatar_url, owner_role, collaborators",
     )
     .eq("id", id)
     .maybeSingle();
@@ -89,6 +91,7 @@ export default async function VideoPage({ params }: PageProps<"/v/[id]">) {
   const duration = formatDuration(video.duration_s);
   const tag = publicTag(video.owner_role, video.owner_title);
   const accent = difficultyAccent(video.difficulty);
+  const collaborators = readCollaborators(video.collaborators);
 
   return (
     <section>
@@ -123,27 +126,48 @@ export default async function VideoPage({ params }: PageProps<"/v/[id]">) {
         </h1>
 
         {/*
-          The byline. One name for now: collaborators and the "and Andre L."
-          form arrive with video_collaborators in phase 4.
+          The byline names every accepted collaborator, where a library card
+          counts them past the first. The page has the room, and a co-author
+          who is only ever "+ 2 others" is not really credited.
+
+          Each name links to its profile, which the card cannot do: the whole
+          card is already one link, and a link inside a link is invalid.
         */}
-        <div className="mt-8 flex items-center gap-3 border-y border-ink/10 py-5">
-          <Link href={`/u/${video.owner_username}`} className="shrink-0">
-            <Avatar
-              src={video.owner_avatar_url}
-              displayName={video.owner_display_name}
-              px={44}
-              className="size-11"
-            />
-          </Link>
-          <div className="min-w-0">
-            <Link
-              href={`/u/${video.owner_username}`}
-              className="font-medium transition-colors hover:text-ink/70"
-            >
-              {video.owner_display_name}
+        <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 border-y border-ink/10 py-5">
+          <div className="flex items-center gap-3">
+            <Link href={`/u/${video.owner_username}`} className="shrink-0">
+              <Avatar
+                src={video.owner_avatar_url}
+                displayName={video.owner_display_name}
+                px={44}
+                className="size-11"
+              />
             </Link>
-            {tag && <p className="label mt-1 text-ink/45">{tag}</p>}
+            <div className="min-w-0">
+              <Link
+                href={`/u/${video.owner_username}`}
+                className="font-medium transition-colors hover:text-ink/70"
+              >
+                {video.owner_display_name}
+              </Link>
+              {tag && <p className="label mt-1 text-ink/45">{tag}</p>}
+            </div>
           </div>
+
+          {collaborators.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="label text-ink/35">with</span>
+              {collaborators.map((person) => (
+                <Link
+                  key={person.username}
+                  href={`/u/${person.username}`}
+                  className="text-sm text-ink/70 transition-colors hover:text-ink"
+                >
+                  {person.display_name}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {video.description && (
