@@ -185,12 +185,17 @@ export default async function LibraryPage(props: PageProps<"/library">) {
               {total} {total === 1 ? "video" : "videos"}
             </p>
 
-            <ul className="mt-6 grid gap-px overflow-hidden rounded-lg bg-ink/12 sm:grid-cols-2 lg:grid-cols-3">
+            {/*
+              Real gaps on the page background, not a tinted container showing
+              through 1px seams. A row is not always full, and the seam trick
+              renders an empty cell as a grey rectangle.
+            */}
+            <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {videos.map((video) => (
-                <li key={video.id} className="flex">
-                  <div className="flex w-full flex-col">
-                    <VideoCard video={video} />
-                  </div>
+                // A grid item stretches to the row height, so the card's
+                // h-full has something definite to resolve against.
+                <li key={video.id}>
+                  <VideoCard video={video} />
                 </li>
               ))}
             </ul>

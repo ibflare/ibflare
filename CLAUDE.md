@@ -110,6 +110,25 @@ and who to talk to. Their existing videos and comments stay up unless separately
 Suspend is reversible and is the default response. Deleting an account is not offered in the UI —
 if it's ever genuinely needed, it happens in the SQL editor with a sponsor present.
 
+> **That escape hatch does not currently work for anyone who has ever moderated anything**, and it
+> fails in a confusing way. `audit_log.actor_id` references `profiles` with no `ON DELETE` clause,
+> so deleting the `auth.users` row cascades to `profiles` and is then refused with `23503`,
+> "key is still referenced from table audit_log". Found by deleting a throwaway moderator account
+> after a verification run.
+>
+> The fix is a design decision, not a typo, which is why it is recorded rather than applied:
+>
+> - `on delete set null` keeps the log entry and loses the actor. The record of *what happened*
+>   survives; the record of *who did it* does not, which is most of the value.
+> - Leaving it means audit history pins accounts in place. Defensible, arguably correct: a
+>   moderation log you can erase by deleting the moderator is not much of a log. But then §2's
+>   sentence above is wrong and the real answer is that officers cannot be deleted, only suspended
+>   and retitled, which §2 already prefers anyway.
+>
+> `profiles.suspended_by` and `videos.deleted_by` have the same shape and will behave the same way.
+> Decide before phase 4 builds the tools that write these rows, because every row written before the
+> decision inherits it.
+
 ### Succession and lockout
 
 Sponsors are the only role that can create other sponsors — this is how the club survives a faculty
@@ -307,6 +326,37 @@ during a school week, one person flips it off in ten seconds — no deploy, no c
 on whoever has repo access. Existing comments are hidden, not deleted, and come back when it's
 flipped on. `signups_enabled` works the same way if the site ever gets found by people it wasn't
 built for. Comments can also be disabled per-video by the owner or a moderator.
+
+### Deleting a comment, in phase 5
+
+**Comment deletion is soft, like everything else.** Set `deleted_at` and `deleted_by`. Never
+`DELETE FROM comments`. The row stays in the table, so a sponsor opening Supabase sees the comment
+and its full history rather than a gap where something used to be, and a deletion made in error is
+reversible by clearing two columns.
+
+**A moderator deleting a comment also writes an `audit_log` row that copies the evidence out as
+plain text.** Not ids, not foreign keys: the comment body, the author's username, the author's
+display name, the video title, and the reason, all denormalised into `detail`.
+
+That duplication is the point, and it is worth being explicit about why, because a reviewer will
+otherwise see it as sloppy schema design and normalise it away:
+
+- `comments.author_id` and `videos.owner_id` both cascade on profile delete. Delete the account and
+  the comment row goes with it, taking `deleted_at` and the whole soft-delete trail with it.
+- So the `audit_log` row is the only copy that survives. An account deleted after a serious incident
+  is exactly the case where the record matters most, and it is exactly the case where every
+  reference-based record disappears.
+- `audit_log.actor_id` is the one FK that does not cascade, which is why the log outlives the rows
+  it describes. See the note in §2 about what that means for deleting an account.
+
+Write the row inside the same transaction as the soft delete, in a definer function, so a delete
+cannot succeed without its record.
+
+```
+action  'comment.delete'
+target  the comment id
+detail  { body, author_username, author_display_name, video_title, reason, deleted_by }
+```
 
 ---
 
@@ -787,6 +837,28 @@ Most users are minors. Hard constraints, not preferences.
    `videos.release_ok` with the timestamp. The paper releases live outside the app, in a folder the
    officers keep. The checkbox is a record, not a substitute — say so in the label.
 6. Comments ship with the moderation stack in §4 or they don't ship.
+
+   **This means the database will retain content written by accounts that no longer exist.** §4's
+   deletion rule copies a deleted comment's body, the author's username and display name, the video
+   title and the reason into `audit_log` as plain text, precisely so the evidence survives the
+   account being deleted and the comment row cascading away. `audit_log.actor_id` does not cascade,
+   so the log outlives the people in it.
+
+   That is the right call for moderation and it is a real retention claim, so it cannot be left
+   implicit:
+
+   - **The privacy policy has to say so before comments ship.** Its retention section currently
+     promises only that we keep an account "for as long as your account is open". A deleted comment
+     quoted verbatim in a moderation log, still readable after the author's account is gone, is not
+     covered by that sentence and contradicts the reasonable reading of it.
+   - The retention is deliberately narrow: a comment that a moderator deleted, not every comment.
+     Nothing is copied out of a comment that is simply sitting there, and nothing is copied when an
+     author deletes their own.
+   - Say who can read it, which is `can_moderate` only, and say that it is kept as a disciplinary
+     record rather than as site content.
+
+   Whoever reviews the legal documents needs this in front of them, since it is the one place where
+   the site keeps a minor's words after that minor has asked to be gone.
 7. **Profile pictures ship with a takedown path or they don't ship.** Uploading is open to every
    onboarded account as of `20260904010000`, which means the site now accepts arbitrary images from
    minors. That is only defensible because `can_moderate` can clear anyone's picture and the removal

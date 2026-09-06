@@ -33,11 +33,25 @@ export function VideoCard({ video }: { video: VideoRow }) {
   const duration = formatDuration(video.duration_s);
 
   return (
+    /*
+     * The card owns its own border and radius rather than being a flat panel
+     * separated by a 1px gap in a tinted grid.
+     *
+     * The gap trick draws dividers by letting a container background show
+     * through, which has two problems in a grid that is not always full: an
+     * empty cell shows as a grey rectangle, and a card shorter than its row
+     * leaves grey under it. Real borders and real gaps mean the page
+     * background is what shows in both cases.
+     *
+     * h-full is what makes every card in a row the same height, since the grid
+     * stretches the cell but the link inside it would otherwise size to its
+     * own content and leave a gap beneath a short title.
+     */
     <Link
       href={`/v/${video.id}`}
-      className="group flex flex-col bg-paper transition-colors hover:bg-paper-deep/60"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-ink/15 bg-paper transition-colors hover:border-ink/30 hover:bg-paper-deep/50"
     >
-      <div className="relative aspect-video overflow-hidden bg-ink/8">
+      <div className="relative aspect-video overflow-hidden border-b border-ink/10 bg-ink/8">
         {video.thumbnail_url && (
           <Image
             src={video.thumbnail_url}
