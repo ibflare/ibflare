@@ -89,8 +89,14 @@ export function QuoteRotator() {
             // Without this a screen reader would read all five in a row.
             aria-hidden={n !== index}
           >
+            {/*
+              The marks are added here rather than baked into the strings
+              above, so QUOTES stays plain sentences: easier to re-punctuate,
+              and the text is still usable anywhere that supplies its own
+              quoting. Curly, not the straight typewriter pair.
+            */}
             <p className="font-display text-3xl leading-tight font-medium text-balance">
-              {quote.text}
+              &ldquo;{quote.text}&rdquo;
             </p>
             <footer className="label mt-5 text-mist/50">{quote.who}</footer>
           </blockquote>
