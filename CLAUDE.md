@@ -116,6 +116,39 @@ a regular account it happens in the SQL editor with a sponsor present, and it wo
 cascades to `profiles` and is then refused with `23503`, "key is still referenced from table
 audit_log". `profiles.suspended_by` and `videos.deleted_by` are the same by the same decision.
 
+**`site_settings.updated_by` is the one exception, and it is `ON DELETE SET NULL`.** It was the
+fourth column with this shape, found by a delete failing with `23503` after a verification run. It
+is not a record of anything: it says who touched the settings row most recently, and the accountable
+version of that fact is already an `audit_log` row. Keeping a whole account undeletable to preserve
+a duplicate pointer is the tail wagging the dog. Changed in `20260907000000`.
+
+**The log itself does not depend on that pointer, or on any live account.** `audit_log` carries
+`actor_username` and `actor_display_name` as text, stamped by a `before insert` trigger at write
+time. "Aryan N. turned comments off" reads that way permanently, whether or not that account still
+exists.
+
+> **This was not true until `20260907000000`.** `read_audit_log` resolved the actor by joining
+> `profiles` on `actor_id`, so the log read a live account on every request. Three ways that goes
+> wrong, and only the third is about deletion:
+>
+> - **A display name is editable.** Somebody who acts as "Aryan N." and later renames themselves
+>   rewrote the entire history of what they did, because a live join shows the current name rather
+>   than the name they acted under. This is the one that would have bitten first and silently.
+> - **A null `actor_id`** from any future path loses the actor completely instead of degrading to a
+>   name.
+> - **It made the log's correctness rest on a foreign key kept for a different reason.** Two
+>   unrelated requirements leaning on one constraint is how one of them quietly breaks when the
+>   constraint is revisited for the other.
+>
+> The join is now gone entirely rather than kept as a fallback. A fallback would mean the log still
+> resolves a live account under some conditions, and "under some conditions" is not something anyone
+> can reason about a year later.
+>
+> **It is stamped by a trigger rather than by each function.** There were seven `audit_log` inserts
+> across three migrations and phase 5 adds at least one more for `comment.delete`. Editing each is
+> seven chances to forget and no cover for the eighth. Stamping at the table means every writer is
+> covered, including the ones that do not exist yet.
+
 **Decided, not inherited.** The alternative was `on delete set null`, which keeps the log entry and
 drops the actor. That was rejected: a moderation record that says something was deleted but not who
 deleted it is most of the way to no record at all, and the moment it matters most is exactly the
@@ -266,12 +299,14 @@ reports (
 )
 
 audit_log (
-  id          bigserial primary key,
-  actor_id    uuid references profiles,
-  action      text not null,     -- 'video.delete', 'user.permissions', 'comment.delete', ...
-  target      text,              -- id or username of the thing acted on
-  detail      jsonb,             -- before/after for permission changes
-  created_at  timestamptz not null default now()
+  id                 bigserial primary key,
+  actor_id           uuid references profiles,   -- no ON DELETE: pins the account, see §2
+  actor_username     text,      -- stamped by trigger at write time, never resolved live
+  actor_display_name text,      -- ditto. A display name is editable; history is not
+  action             text not null,  -- 'video.delete', 'user.permissions', 'comment.delete', ...
+  target             text,      -- id or username of the thing acted on
+  detail             jsonb,     -- before/after for permission changes
+  created_at         timestamptz not null default now()
 )
 
 -- exactly one row, id = 1. The kill switches live here so they can be flipped
@@ -280,7 +315,7 @@ site_settings (
   id                 smallint primary key default 1 check (id = 1),
   comments_enabled   boolean not null default true,
   signups_enabled    boolean not null default true,
-  updated_by         uuid references profiles,
+  updated_by         uuid references profiles on delete set null,  -- the exception, see §2
   updated_at         timestamptz not null default now()
 )
 ```
