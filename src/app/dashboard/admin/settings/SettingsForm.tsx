@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { saveSiteSettings } from "../actions";
-import { EMPTY_ACTION } from "../../actions";
+import { EMPTY_ACTION } from "@/lib/action-state";
 
 /**
  * The two kill switches. Section 4.

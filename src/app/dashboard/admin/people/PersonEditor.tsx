@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { savePermissions, suspendUser, unsuspendUser } from "../actions";
-import { EMPTY_ACTION } from "../../actions";
+import { EMPTY_ACTION } from "@/lib/action-state";
 
 export type Person = {
   id: string;
@@ -69,9 +69,16 @@ export function PersonEditor({ person }: { person: Person }) {
           {person.display_name}
         </span>
         <span className="text-sm text-ink/50">@{person.username}</span>
-        {person.title && (
-          <span className="label text-ink/45">{person.title}</span>
-        )}
+        {/*
+          A title identical to the role is not worth two chips. ibflare has
+          role "sponsor" and title "Sponsor", which read as "SPONSOR SPONSOR"
+          side by side. Compared case-insensitively and trimmed, since the
+          title is free text a sponsor types.
+        */}
+        {person.title &&
+          person.title.trim().toLowerCase() !== person.role.toLowerCase() && (
+            <span className="label text-ink/45">{person.title}</span>
+          )}
         <span className="label text-ink/35">{person.role}</span>
         {person.suspended_at && (
           <span className="label text-hot">suspended</span>

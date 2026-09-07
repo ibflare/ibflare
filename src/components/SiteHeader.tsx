@@ -9,12 +9,15 @@ import { MobileNav } from "./MobileNav";
  * The nav depends on whether you are signed in.
  *
  *   signed out  Library, Our mission, then Sign in
- *   signed in   Library, Contribute, then Sign out
+ *   signed in   Library, Contribute, Dashboard*, Profile, then Sign out
  *
  * Our mission is for people deciding whether FLARE is worth their time, which
  * is not a question a signed-in member still has. Contribute is instructions
  * for publishing, which is not useful to someone who cannot publish yet.
- * Neither appears in the other state, so the nav stays three items wide.
+ * Neither appears in the other state.
+ *
+ * *Dashboard only for an account holding can_post, can_moderate or
+ * can_manage_users. See the capability note below.
  */
 const NAV_SIGNED_OUT = [
   { href: "/library", label: "Library" },
@@ -51,25 +54,44 @@ export async function SiteHeader() {
 
   let username: string | null = null;
   let suspended = false;
+  let hasDashboard = false;
 
   if (user) {
     /*
-     * The base table, not public_profiles, because suspended_at is not in the
-     * view and should not be: it is nobody else's business. The owner select
-     * policy is what allows this, so it only ever returns the caller's row.
+     * The base table, not public_profiles, because suspended_at and the
+     * capability flags are not in the view and should not be: they are nobody
+     * else's business. The owner select policy is what allows this, so it only
+     * ever returns the caller's row.
      */
     const { data } = await supabase
       .from("profiles")
-      .select("username, suspended_at")
+      .select("username, suspended_at, can_post, can_moderate, can_manage_users")
       .eq("id", user.id)
       .maybeSingle();
 
     username = data?.username ?? null;
     suspended = Boolean(data?.suspended_at);
+
+    /*
+     * Any one of the three, not the role. A viewer with can_post still has
+     * drafts and collaboration invites to deal with, and gating on
+     * role === 'member' would hide the dashboard from exactly that person.
+     * Section 2: always gate on the capability, never on the role string.
+     *
+     * Someone with none of the three has nothing on that page: no videos to
+     * list, no tabs, and an upload link they cannot use. The link is left out
+     * rather than leading them to an empty room.
+     */
+    hasDashboard = Boolean(
+      data?.can_post || data?.can_moderate || data?.can_manage_users,
+    );
   }
 
   const nav = [
     ...(user ? NAV_SIGNED_IN : NAV_SIGNED_OUT),
+    ...(user && hasDashboard
+      ? [{ href: "/dashboard", label: "Dashboard" }]
+      : []),
     ...(user && username
       ? [{ href: `/u/${username}`, label: "Profile" }]
       : []),

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { moderatorDeleteVideo, restoreVideo } from "./actions";
-import { EMPTY_ACTION } from "../actions";
+import { EMPTY_ACTION } from "@/lib/action-state";
 
 /**
  * Delete with a reason, or restore.

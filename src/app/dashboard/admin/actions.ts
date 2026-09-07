@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { ActionState } from "../actions";
+import type { ActionState } from "@/lib/action-state";
 
 /**
  * Moderator and sponsor actions. Every one is a definer function call.
@@ -25,9 +25,26 @@ async function rpc(
 
   if (!user) return { error: "You need to be signed in to do that.", ok: false };
 
-  const { error } = await supabase.rpc(name, args);
-  if (error) return { error: error.message, ok: false };
-  return { error: null, ok: true };
+  /*
+   * try/catch around the call as well as checking `error`.
+   *
+   * postgrest-js returns a raised exception in `error` rather than throwing,
+   * so the second half is normally what runs. The try is there because
+   * anything that does throw out of a server action becomes an unhandled 500
+   * with an opaque digest, and the messages these functions raise are written
+   * for a student to read. A message on the page beats a digest in a log every
+   * time, whichever way the failure arrives.
+   */
+  try {
+    const { error } = await supabase.rpc(name, args);
+    if (error) return { error: error.message, ok: false };
+    return { error: null, ok: true };
+  } catch (thrown) {
+    return {
+      error: thrown instanceof Error ? thrown.message : "That did not work.",
+      ok: false,
+    };
+  }
 }
 
 function refreshAdmin() {

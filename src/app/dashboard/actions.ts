@@ -13,9 +13,15 @@ import { createClient } from "@/lib/supabase/server";
  * drift out of step with the database.
  */
 
-export type ActionState = { error: string | null; ok: boolean };
-
-export const EMPTY_ACTION: ActionState = { error: null, ok: false };
+/*
+ * ActionState and EMPTY_ACTION live in src/lib/action-state.ts, not here.
+ * A "use server" file may only export async functions: Next validates each
+ * export at runtime and throws "can only export async functions, found
+ * object" for a const, which is a 500 on submit that no build or lint step
+ * catches. The type alone would have been legal, since types are erased, but
+ * both belong together.
+ */
+import type { ActionState } from "@/lib/action-state";
 
 async function rpc(
   name: string,
@@ -28,17 +34,28 @@ async function rpc(
 
   if (!user) return { error: "You need to be signed in to do that.", ok: false };
 
-  const { error } = await supabase.rpc(name, args);
-
   /*
    * The message comes straight from the function. Those messages are written
    * to be read by a student ("That invitation is not open any more"), which is
    * the whole reason the checks live there rather than being duplicated here
    * in two different wordings.
+   *
+   * try/catch as well as the `error` check: postgrest-js returns a raised
+   * exception rather than throwing, so the check is normally what runs, but
+   * anything that does throw out of a server action becomes an unhandled 500
+   * with an opaque digest. A message on the page beats a digest in a log,
+   * whichever way the failure arrives.
    */
-  if (error) return { error: error.message, ok: false };
-
-  return { error: null, ok: true };
+  try {
+    const { error } = await supabase.rpc(name, args);
+    if (error) return { error: error.message, ok: false };
+    return { error: null, ok: true };
+  } catch (thrown) {
+    return {
+      error: thrown instanceof Error ? thrown.message : "That did not work.",
+      ok: false,
+    };
+  }
 }
 
 export async function respondToInvite(

@@ -1362,6 +1362,31 @@ through the dashboard UI — the migration file is the record.
 
 ## 12. Working notes
 
+**A `"use server"` file may only export async functions, and Next checks it at runtime.** Phase 4
+exported `EMPTY_ACTION`, a plain object, from `src/app/dashboard/actions.ts`. Every `useActionState`
+in the dashboard read its initial state from that export, so every form on every admin page returned
+a 500 the first time anybody submitted one. The message, thrown from
+`next-flight-loader/action-validate`, is:
+
+```
+A "use server" file can only export async functions, found object.
+```
+
+What makes this worth writing down is what did *not* catch it: `tsc --noEmit` passed, `eslint`
+passed, `next build` passed, and all 23 routes rendered. The validator runs when the action module
+is loaded, not when it is compiled, so the failure only exists at the moment a form is submitted.
+Nothing short of clicking the button finds it.
+
+A `type` export from an actions file is fine, since types are erased before the validator sees
+anything. A `const` is not. **Actions files export async functions and nothing else**; shared
+constants live in an ordinary module, which is now `src/lib/action-state.ts`.
+
+The general lesson, which applies past this one bug: verifying the phase 4 write paths by calling
+the RPCs directly with a token proved the database was right and proved nothing at all about the
+pages. The two halves need exercising separately.
+
+
+
 **`create-next-app` overwrites `CLAUDE.md`.** Next 16's scaffolder writes its own agent files and
 replaced this spec with a one-line `@AGENTS.md` stub during phase 1. It does this *before* running
 `git init`, so the initial commit captured the stub, not the spec — there was no git copy to restore

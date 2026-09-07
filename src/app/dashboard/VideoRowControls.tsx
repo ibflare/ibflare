@@ -5,8 +5,8 @@ import {
   inviteCollaborator,
   removeCollaborator,
   deleteOwnVideo,
-  EMPTY_ACTION,
 } from "./actions";
+import { EMPTY_ACTION } from "@/lib/action-state";
 
 type Person = { profile_id: string; display_name: string; status: string };
 

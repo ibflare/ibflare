@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { respondToInvite, EMPTY_ACTION } from "./actions";
+import { respondToInvite } from "./actions";
+import { EMPTY_ACTION } from "@/lib/action-state";
 
 /**
  * Accept or decline a tag.
