@@ -174,3 +174,80 @@ export async function saveSiteSettings(
   }
   return result;
 }
+
+/*
+ * Phase 5. The report queue's actions.
+ *
+ * deleteReportedComment and suspendUser are the two an officer reaches for
+ * from the queue, and both already exist as definer functions that write their
+ * own audit_log row. Suspending from here is the same suspendUser above:
+ * section 4 asks for suspend inline on every comment, and inline means the
+ * same action rather than a second one with its own rules.
+ */
+
+function refreshQueue() {
+  revalidatePath("/dashboard/admin/reports");
+  revalidatePath("/dashboard/admin/log");
+}
+
+export async function resolveReport(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const reportId = String(formData.get("report_id") ?? "");
+  const status = String(formData.get("status") ?? "");
+
+  if (!reportId) return { error: "We could not tell which report that was.", ok: false };
+  if (status !== "resolved" && status !== "dismissed") {
+    return { error: "A report is either resolved or dismissed.", ok: false };
+  }
+
+  const result = await rpc("resolve_report", {
+    p_report: reportId,
+    p_status: status,
+  });
+
+  if (result.ok) refreshQueue();
+  return result;
+}
+
+export async function deleteReportedComment(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const commentId = String(formData.get("comment_id") ?? "");
+  const videoId = String(formData.get("video_id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+
+  if (!commentId) return { error: "We could not tell which comment that was.", ok: false };
+  if (!reason) return { error: "Say why, so the log means something later.", ok: false };
+
+  const result = await rpc("soft_delete_comment", {
+    p_comment: commentId,
+    p_reason: reason,
+  });
+
+  if (result.ok) {
+    refreshQueue();
+    if (videoId) revalidatePath(`/v/${videoId}`);
+  }
+  return result;
+}
+
+export async function restoreComment(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const commentId = String(formData.get("comment_id") ?? "");
+  const videoId = String(formData.get("video_id") ?? "");
+
+  if (!commentId) return { error: "We could not tell which comment that was.", ok: false };
+
+  const result = await rpc("restore_comment", { p_comment: commentId });
+
+  if (result.ok) {
+    refreshQueue();
+    if (videoId) revalidatePath(`/v/${videoId}`);
+  }
+  return result;
+}

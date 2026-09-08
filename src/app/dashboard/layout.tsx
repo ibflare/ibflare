@@ -14,6 +14,7 @@ import { getCurrentProfile } from "@/lib/supabase/server";
 const TABS = [
   { href: "/dashboard", label: "My videos", need: null },
   { href: "/dashboard/admin", label: "All videos", need: "moderate" },
+  { href: "/dashboard/admin/reports", label: "Reports", need: "moderate" },
   { href: "/dashboard/admin/people", label: "People", need: "manage_users" },
   { href: "/dashboard/admin/log", label: "Log", need: "moderate" },
   { href: "/dashboard/admin/settings", label: "Settings", need: "manage_users" },

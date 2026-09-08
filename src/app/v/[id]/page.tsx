@@ -12,6 +12,7 @@ import {
 } from "@/lib/taxonomy";
 import { formatDuration } from "@/lib/youtube";
 import { readCollaborators } from "@/lib/byline";
+import { Comments } from "./Comments";
 
 /**
  * A video page. Public: viewing does not require an account.
@@ -197,7 +198,7 @@ export default async function VideoPage({ params }: PageProps<"/v/[id]">) {
           </Link>
         </div>
 
-        {/* Comments are phase 5, and ship with the moderation stack or not at all. */}
+        <Comments videoId={video.id} />
       </div>
     </section>
   );
