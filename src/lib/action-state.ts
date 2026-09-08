@@ -24,3 +24,31 @@
 export type ActionState = { error: string | null; ok: boolean };
 
 export const EMPTY_ACTION: ActionState = { error: null, ok: false };
+
+/**
+ * What the comment actions return.
+ *
+ * `body` and `token` exist because React resets an uncontrolled form after an
+ * action submits, whether the action succeeded or not. A refused comment
+ * therefore lost the text the person had written, which is the worst possible
+ * moment to lose it: they now have to retype the whole thing to change one
+ * word.
+ *
+ * The action echoes the submitted body back on failure and an empty string on
+ * success, and `token` changes every time so the textarea can be keyed on it
+ * and remount with the right `defaultValue`. Keying is what makes it work: a
+ * changed `defaultValue` does nothing to an input that is already mounted.
+ */
+export type CommentState = {
+  error: string | null;
+  ok: boolean;
+  body: string;
+  token: string;
+};
+
+export const EMPTY_COMMENT: CommentState = {
+  error: null,
+  ok: false,
+  body: "",
+  token: "initial",
+};

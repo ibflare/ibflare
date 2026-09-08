@@ -68,6 +68,20 @@ export function ReportRow({ row }: { row: QueueRow }) {
   const error =
     resolveState.error ?? delState.error ?? restoreState.error ?? suspendState.error;
 
+  /*
+   * A form closes because its action succeeded, not because a button was
+   * clicked. Deriving it from the action state rather than clearing `open` in
+   * the submit handler matters: a state change in an onClick unmounts the form
+   * before the submit event fires, and the browser then cancels the submission
+   * with "Form submission canceled because the form is not connected". The
+   * action never runs and nothing surfaces, because there is no action result
+   * to carry an error. That bug was live in the report button on the video
+   * page.
+   */
+  const showDelete = open === "delete" && !delState.ok;
+  const showSuspend = open === "suspend" && !suspendState.ok;
+  const showActions = !showDelete && !showSuspend;
+
   const repeat =
     row.author_report_count > 1 ||
     row.author_blocked_count > 0 ||
@@ -144,7 +158,7 @@ export function ReportRow({ row }: { row: QueueRow }) {
         </p>
       )}
 
-      {open === null && (
+      {showActions && (
         <div className="mt-4 flex flex-wrap items-center gap-4">
           {row.report_status === "open" && (
             <>
@@ -207,7 +221,7 @@ export function ReportRow({ row }: { row: QueueRow }) {
         </div>
       )}
 
-      {open === "delete" && (
+      {showDelete && (
         <form action={remove} className="mt-4 flex flex-wrap items-center gap-2">
           <input type="hidden" name="comment_id" value={row.comment_id} />
           <input type="hidden" name="video_id" value={row.video_id} />
@@ -237,7 +251,7 @@ export function ReportRow({ row }: { row: QueueRow }) {
         </form>
       )}
 
-      {open === "suspend" && (
+      {showSuspend && (
         <form action={suspend} className="mt-4 space-y-3">
           <input type="hidden" name="target_id" value={row.author_id} />
           <input

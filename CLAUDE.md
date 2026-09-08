@@ -920,6 +920,21 @@ Most users are minors. Hard constraints, not preferences.
    Whoever reviews the legal documents needs this in front of them, since it is the one place where
    the site keeps a minor's words after that minor has asked to be gone.
 
+   **And a second retention the same review has to cover: `flag_blocked_comment` stores text that
+   was never accepted onto the site.** Section 4's second tier refuses a comment containing a slur
+   *and* writes it verbatim into `audit_log` as `comment.blocked`, attributed to the account that
+   tried. Nothing was published and nobody reported it, so this is the site keeping a record of
+   something a student typed and was told no about.
+
+   It is deliberate and it is narrow. The point of the tier is the pattern: one slip is a
+   fifteen-year-old being stupid, three in a week from one account is a thing an officer has to
+   act on, and there is no comment row to point at because the comment was refused. Ordinary
+   swearing writes nothing at all, which is the line between the two tiers.
+
+   The honest description is still that FLARE stores words a minor was prevented from publishing.
+   Only `can_moderate` can read them, they are a disciplinary record rather than site content, and
+   the privacy policy says nothing about them today.
+
    **A second thing for the same review: `/terms` promises a deletion right the site will not
    honour for officers.** It currently says an account can be deleted on request by emailing us.
    §2's decision means that is untrue for anyone who has ever moderated anything: their account can
@@ -967,6 +982,9 @@ Do not attempt this in one pass. Each phase runs and deploys before the next beg
 
 Seed ~15 videos across all five levels so `/library` looks real in development. Mark them clearly so
 they can be deleted before launch.
+
+**All five phases are built.** What remains before launch is not a phase: transactional email, the
+legal review section 9 asks for, a real domain, and deleting the fifteen `[SEED]` rows.
 
 ### Phase 1 status
 
@@ -1219,6 +1237,82 @@ Decisions worth knowing:
 Deferred to phase 5, by design: comments, the moderation filter, the report button, the officer
 queue at `/dashboard/admin/reports`, and the comment rate limit. `/dashboard/admin` leaves a place
 for reported comments to land.
+
+### Phase 5 status
+
+Built: `supabase/migrations/20260908000000_comments.sql`, `src/lib/moderation/` (`index.ts` and
+`wordlist.ts`), `public_comments`, the comment section on `/v/[id]`, and
+`/dashboard/admin/reports`.
+
+**Every condition in section 4 is enforced by the insert policy, and only the wordlist is not.**
+The policy requires the author to be themselves, the video to be public, the account to be
+onboarded and unsuspended, `comments_enabled` to be on, and `recent_comment_count() < 5`. The
+filter runs in the server action, because that is where the wordlist lives.
+
+> **The application re-checks those same conditions before inserting, and that is not redundancy.**
+> A policy that refuses says only "new row violates row-level security policy for table comments",
+> which is true and useless to a fifteen-year-old who needs to be told to wait a minute. `whyNot()`
+> reads the same conditions in order to choose a sentence. The policy is still what enforces them.
+
+Decisions worth knowing:
+
+- **Deleting is soft and the moderator branch writes the evidence out as text**, per section 4.
+  `soft_delete_comment` sets `deleted_at`/`deleted_by`, and *only when a moderator deletes somebody
+  else's comment* also writes an `audit_log` row carrying the body, the author's username and
+  display name, the video title, and the reason, then resolves any open report on that comment. One
+  transaction, one definer function, so a delete cannot land without its record. Somebody deleting
+  their own comment writes nothing: there is no decision to justify.
+- **`detail` does not carry `deleted_by`, and section 4's sketch of the row says it should.** The
+  actor is in `actor_id`, `actor_username` and `actor_display_name`, which `20260907000000` added
+  after that sketch was written and which survive the actor's account being deleted. Copying it a
+  fourth time into `detail` would be the only field in the row with two sources of truth.
+- **The filter's second tier writes `comment.blocked` through `flag_blocked_comment`.** The refused
+  text is stored verbatim, because "this account has tried three times this week" is the thing an
+  officer needs and there is no comment row to point at. Tier one, ordinary swearing, is refused
+  with no record at all. Section 9 records what that retention means.
+- **Runs of three or more are collapsed, not runs of two.** `fuuuck` normalises to `fuck`; `book`
+  and `soon` have to survive, and collapsing doubles turns them into `bok` and `son`.
+- **The queue shows the author's history only when there is something to say.** A first offence
+  listed beside three zeroes reads as an accusation rather than as context.
+- **A moderator sees Delete and Report on somebody else's comment, and no Edit.** The five-minute
+  edit window is for the author fixing a typo; a moderator rewriting somebody else's words is not a
+  power the site should have, and there is no path to it.
+
+> **A form closes because its action succeeded, never because its submit button was clicked.**
+> The report button carried `onClick={() => setOpen(null)}`, which unmounted the form before the
+> submit event fired. The browser then cancels the submission with "Form submission canceled
+> because the form is not connected", the action never runs, and *nothing surfaces*: there is no
+> action result, so there is no error to render. Every report submitted that way was silently
+> discarded, and the only trace was a console warning. `CommentControls` and `ReportRow` now derive
+> whether a form is open from the action state instead.
+
+> **React resets an uncontrolled form after any action submits, success or failure.** A comment
+> refused by the filter therefore lost everything the person had typed, which is the worst moment
+> to lose it, and an effect that clears on success cannot fix it because the reset happens either
+> way. `CommentState` echoes the submitted body back on failure with a fresh `token`, and the
+> textarea is keyed on that token: keying is what makes the new `defaultValue` apply, since
+> changing `defaultValue` does nothing to an input that is already mounted. The edit box is
+> controlled for the same reason.
+
+Verified in a browser rather than by calling the functions, which is the distinction that matters:
+phase 4 was checked by calling its RPCs, and that proved the database was right and nothing about
+the pages. Both bugs above were invisible to `tsc`, `eslint` and `next build`, and one of them was
+invisible to the database as well.
+
+| Check | Result |
+|---|---|
+| Ordinary comment posts and renders | yes |
+| Profanity refused, section 4's wording, text preserved | yes, no log row |
+| Slur refused and logged as `comment.blocked` with the body | yes |
+| Sixth comment inside a minute | "You are posting a bit fast. Wait a minute and try again." |
+| Report reaches the queue | yes, after the form-not-connected fix |
+| Moderator delete copies all five fields into `audit_log` | yes, same timestamp as `deleted_at` |
+| Open report auto-resolved by that delete | yes |
+| Deleted comment gone from `/v/[id]` | yes |
+| Inline suspend from the queue | yes, with its `user.suspend` audit row |
+| Suspended author: banner, no form, no Report, comments stay up | yes |
+| `comments_enabled` off hides the whole section | yes |
+| `comments_enabled` off refuses a direct PostgREST insert | `42501` |
 
 ### Media assets
 

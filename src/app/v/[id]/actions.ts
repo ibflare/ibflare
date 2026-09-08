@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkComment } from "@/lib/moderation";
-import type { ActionState } from "@/lib/action-state";
+import type { ActionState, CommentState } from "@/lib/action-state";
 
 /**
  * Posting, editing, deleting and reporting a comment.
@@ -56,17 +56,25 @@ async function whyNot(
   return null;
 }
 
+/** A fresh token per result, so the textarea remounts with the right text. */
+function commentState(
+  error: string | null,
+  body: string,
+): CommentState {
+  return { error, ok: error === null, body: error === null ? "" : body, token: crypto.randomUUID() };
+}
+
 export async function postComment(
-  _prev: ActionState,
+  _prev: CommentState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<CommentState> {
   const videoId = String(formData.get("video_id") ?? "");
   const body = String(formData.get("body") ?? "").trim();
 
-  if (!videoId) return { error: "We could not tell which video that was.", ok: false };
-  if (!body) return { error: "Write something first.", ok: false };
+  if (!videoId) return commentState("We could not tell which video that was.", body);
+  if (!body) return commentState("Write something first.", body);
   if (body.length > 1000) {
-    return { error: "That is too long. Keep it under 1000 characters.", ok: false };
+    return commentState("That is too long. Keep it under 1000 characters.", body);
   }
 
   const supabase = await createClient();
@@ -74,10 +82,10 @@ export async function postComment(
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { error: "Sign in to comment.", ok: false };
+  if (!user) return commentState("Sign in to comment.", body);
 
   const blocked = await whyNot(supabase, user.id);
-  if (blocked) return { error: blocked, ok: false };
+  if (blocked) return commentState(blocked, body);
 
   /*
    * The filter, before anything is written. A refused comment is not stored:
@@ -104,7 +112,7 @@ export async function postComment(
       });
     }
 
-    return { error: verdict.message, ok: false };
+    return commentState(verdict.message, body);
   }
 
   const { error } = await supabase.from("comments").insert({
@@ -121,16 +129,16 @@ export async function postComment(
      * Postgres text.
      */
     const rls = error.message.includes("row-level security");
-    return {
-      error: rls
+    return commentState(
+      rls
         ? "That did not go through. Wait a moment and try again."
         : `That did not go through: ${error.message}`,
-      ok: false,
-    };
+      body,
+    );
   }
 
   revalidatePath(`/v/${videoId}`);
-  return { error: null, ok: true };
+  return commentState(null, body);
 }
 
 export async function editComment(

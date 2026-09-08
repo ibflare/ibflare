@@ -47,8 +47,31 @@ export function CommentControls({
   const [open, setOpen] = useState<"report" | "delete" | "edit" | null>(null);
   const [reason, setReason] = useState("");
 
+  /*
+   * The edit box is controlled, for the same reason the post box is keyed:
+   * React resets an uncontrolled form after any action submits, so an edit
+   * refused by the filter or by the five-minute window would snap back to the
+   * original text and throw away what was just typed.
+   */
+  const [draft, setDraft] = useState(body);
+
   const error = report.error ?? del.error ?? edit.error;
   const reported = report.ok && !report.error;
+
+  /*
+   * The report form closes because the report succeeded, never because the
+   * submit button was clicked.
+   *
+   * It used to carry onClick={() => setOpen(null)} on the submit button, and
+   * that silently threw the report away: React unmounts the form on that state
+   * change before the submit event fires, so the browser cancels the
+   * submission with "Form submission canceled because the form is not
+   * connected" and the action never runs. Nothing surfaced, because no action
+   * had run to return an error. Never close a form from its own submit
+   * button's onClick.
+   */
+  const showForm = open === "report" && !reported;
+  const showButtons = open === null || reported;
 
   if (open === "edit") {
     return (
@@ -59,7 +82,8 @@ export function CommentControls({
           name="body"
           rows={3}
           maxLength={1000}
-          defaultValue={body}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
           required
           className="w-full resize-y rounded-lg border border-ink/25 bg-paper px-4 py-3 text-sm leading-relaxed"
         />
@@ -76,8 +100,9 @@ export function CommentControls({
             onClick={() => setOpen(null)}
             className="label text-ink/55 transition-colors hover:text-ink"
           >
-            Cancel
+            {edit.ok ? "Done" : "Cancel"}
           </button>
+          {edit.ok && <span className="label text-ink/50">Saved</span>}
         </div>
         {error && (
           <p role="alert" className="mt-2 text-sm text-hot">
@@ -90,7 +115,7 @@ export function CommentControls({
 
   return (
     <div className="mt-2">
-      {open === null && (
+      {showButtons && (
         <div className="flex flex-wrap items-center gap-4">
           {canEdit && (
             <button
@@ -127,7 +152,7 @@ export function CommentControls({
         </div>
       )}
 
-      {open === "report" && (
+      {showForm && (
         <form action={reportAction} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="comment_id" value={commentId} />
           <input
@@ -140,7 +165,6 @@ export function CommentControls({
           <button
             type="submit"
             disabled={reporting}
-            onClick={() => setOpen(null)}
             className="label shrink-0 rounded-full border border-ink/25 px-4 py-2.5 transition-colors hover:border-ink disabled:opacity-50"
           >
             {reporting ? "Sending" : "Report"}
@@ -195,7 +219,9 @@ export function CommentControls({
         </form>
       )}
 
-      {error && open === null && (
+      {/* Under whichever form is open, since a refused report or delete leaves
+          its form on screen and the message has to appear next to it. */}
+      {error && (
         <p role="alert" className="mt-2 text-sm text-hot">
           {error}
         </p>
