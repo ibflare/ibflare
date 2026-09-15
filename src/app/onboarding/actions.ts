@@ -84,18 +84,15 @@ export async function completeOnboarding(
     errors.grade = "Choose one of the options.";
   }
 
-  // Required, not optional. profiles_onboarded_requires_profile refuses to mark
-  // an account onboarded without all three of grade, school and city, so a
-  // blank here would fail at the last write with nothing useful to show.
-  if (!values.school) {
-    errors.school = "Enter your school.";
-  } else if (values.school.length > 120) {
+  // Optional as of 20260909000000, so only the length is checked. Blank is a
+  // valid answer and reaches the database as NULL rather than '', because an
+  // empty string in a private column is a value we would then be storing about
+  // a minor for no reason.
+  if (values.school.length > 120) {
     errors.school = "That is too long. Keep it under 120 characters.";
   }
 
-  if (!values.city) {
-    errors.city = "Enter your city.";
-  } else if (values.city.length > 80) {
+  if (values.city.length > 80) {
     errors.city = "That is too long. Keep it under 80 characters.";
   }
 
@@ -184,8 +181,11 @@ export async function completeOnboarding(
     username: values.username,
     display_name: values.display_name,
     grade: values.grade,
-    school: values.school,
-    city: values.city,
+    // Blank means "not answered", which is NULL. Writing '' would leave the
+    // column looking answered and would satisfy any future non-empty check by
+    // accident.
+    school: values.school || null,
+    city: values.city || null,
   };
 
   const asUsernameError = (code?: string) =>
@@ -209,10 +209,10 @@ export async function completeOnboarding(
    * column-restricted by 20260830010000, so it cannot set a capability flag.
    *
    * onboarded is not set here, and cannot be: two check constraints have to be
-   * satisfied first. profiles_onboarded_requires_profile wants grade, school
-   * and city, which this write supplies, and
-   * profiles_onboarded_requires_consent wants both consent stamps, one of
-   * which is written below. The final update is what flips the flag.
+   * satisfied first. profiles_onboarded_requires_profile wants grade, which
+   * this write supplies, and profiles_onboarded_requires_consent wants both
+   * consent stamps, one of which is written below. The final update is what
+   * flips the flag.
    */
   const { data: updated, error: updateError } = await supabase
     .from("profiles")

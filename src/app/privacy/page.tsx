@@ -14,12 +14,16 @@ const MAIL = "mailto:ibflarergv@gmail.com";
 
 export default function PrivacyPage() {
   return (
-    // Date bumped when viewing stopped requiring an account, which moved both
-    // rows of the "who can see what" table from "anyone with an account" to
-    // anyone at all. The policy's own Changes section says a change to who can
-    // see what gets a new date. The previous bump was 30 August, when profile
-    // pages briefly moved behind sign-in.
-    <LegalPage title="Privacy Policy" updated="September 3, 2026">
+    // Bumped to 9 September because school and city became optional, which
+    // changes what we collect. The Changes section below promises a new date
+    // for that as well as for a change to who can see what, and this is the
+    // first bump on the collection half rather than the visibility half.
+    //
+    // Earlier bumps: 3 September, when viewing stopped requiring an account and
+    // both rows of the "who can see what" table moved from "anyone with an
+    // account" to anyone at all; 30 August, when profile pages briefly moved
+    // behind sign-in.
+    <LegalPage title="Privacy Policy" updated="September 9, 2026">
       <p>
         FLARE (Financial Literacy Advancement for RGV Equity) is a student
         organization at Lamar Academy in McAllen, Texas. This policy explains
@@ -77,9 +81,13 @@ export default function PrivacyPage() {
           provide them.
         </li>
         <li>
-          <strong>Grade, school, and city.</strong> These are private. They are
-          visible only to FLARE officers and the faculty sponsor. They are never
-          shown on a public page.
+          <strong>Grade.</strong> This is private. It is visible only to FLARE
+          officers and the faculty sponsor, and is never shown on a public page.
+        </li>
+        <li>
+          <strong>School and city.</strong> Optional. Private in the same way as
+          your grade if you provide them, and never shown on a public page. You
+          can leave both blank and still use everything on the site.
         </li>
         <li>
           <strong>Birth year.</strong> We store the year only, not your full

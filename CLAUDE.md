@@ -52,6 +52,23 @@ client cover this app.
 > URL actually carries before suspecting the redirect allowlist: reaching this route's error message
 > at all proves the allowlist is fine, because the redirect resolved.
 
+> **Known bug, not yet fixed: `/auth/confirm` verifies the token but cannot sign anybody in.**
+> It is a server component page, and a server component cannot write cookies, so the session that
+> `verifyOtp` (or `exchangeCodeForSession`) returns is swallowed by the `try/catch` in
+> `src/lib/supabase/server.ts`. That catch is correct everywhere else, and its comment says the
+> write is "redundant rather than load-bearing" because `proxy.ts` refreshes the session on every
+> request. On this one route it is load-bearing: the proxy refreshes an *existing* session, and
+> there is none yet.
+>
+> The visible effect is bounded, which is why it has not been treated as urgent: the account really
+> is confirmed at Supabase, and the visitor lands on `/login?next=/onboarding` instead of being
+> carried into onboarding. They sign in with their password and continue. For a passwordless
+> magic-link flow it would be a total failure, and FLARE does not use one.
+>
+> The fix is structural rather than a patch: the `token_hash` and `code` branches belong in a route
+> handler, which may set cookies, leaving a page behind only for the fragment case that has to be
+> finished in the browser.
+
 > **Launch blocker: transactional email.** Confirmation mail currently goes through Supabase's
 > default shared sender, which is rate limited to a handful of messages per hour and is not intended
 > for production. A club meeting where thirty students sign up at once will silently fail for most
@@ -285,6 +302,7 @@ comments (
   author_id   uuid not null references profiles on delete cascade,
   body        text not null check (char_length(body) between 1 and 1000),
   created_at  timestamptz not null default now(),
+  edited_at   timestamptz,            -- set by the 5-minute edit; renders ", edited"
   deleted_at  timestamptz,
   deleted_by  uuid references profiles
 )
@@ -295,7 +313,9 @@ reports (
   reporter_id  uuid not null references profiles,
   reason       text,
   status       text not null default 'open',   -- open|resolved|dismissed
-  created_at   timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  resolved_at  timestamptz,           -- set by resolve_report and by a moderator delete
+  resolved_by  uuid references profiles
 )
 
 audit_log (
@@ -326,6 +346,11 @@ Indexes: GIN on `videos.search_tsv`; btree on `videos(difficulty)`, `videos(topi
 **Deletes are soft.** Set `deleted_at` and `deleted_by`; never `DELETE FROM videos`. Deleted rows
 disappear from every public query but stay recoverable, and moderators can see them in the admin
 panel. Write an `audit_log` row for every delete, permission change, and role change.
+
+> **`videos_delete_complete` enforces that the two columns move together.** Setting `deleted_at`
+> without `deleted_by` is refused with `23514`. Worth knowing before writing a fixture or a repair
+> by hand: a soft delete is both columns or neither, so there is no such thing as a video that is
+> deleted by nobody.
 
 ### Collaboration
 
@@ -574,9 +599,26 @@ or remove it.
 > new picture does not appear. The constraint matches on the prefix, so the query string is fine.
 
 **Suspension is enforced in the database, not just the UI.** Every insert policy on `videos`,
-`comments`, `video_collaborators`, and `reports` also requires `suspended_at IS NULL` on the acting
-profile. Hiding a button is not enforcement. Likewise, the comments insert policy checks
+`comments`, and `video_collaborators` also requires `suspended_at IS NULL` on the acting profile.
+Hiding a button is not enforcement. Likewise, the comments insert policy checks
 `site_settings.comments_enabled` — the kill switch has to hold even if someone hits the API directly.
+
+> **`reports` is the exception, and this sentence used to include it wrongly.** There is no insert
+> policy on `reports` at all, and no insert grant: `report_comment` is the only path. So there was
+> nothing to carry the suspension requirement, and the function did not check it either. A suspended
+> account could file reports until `20260914000000`, which is exactly the spam channel suspension is
+> meant to close, since §2 calls it "the fast lever for a spammer".
+>
+> **The general shape of the mistake is worth more than the bug.** Where a write goes through a
+> definer function rather than a policy, prose about "every insert policy" describes nothing. Two
+> functions had drifted this way, and `flag_blocked_comment` was the worse of the two: it checked
+> only that the caller was signed in, so any authenticated account, onboarded or not, suspended or
+> not, could write arbitrary text into `audit_log` and into the officer queue's "Blocked before
+> posting" panel. Both were found by calling them from a real session, not by reading the policies,
+> which is the only way this class of gap shows up.
+>
+> **When a table's writes move behind a definer function, the guards move with them.** The function
+> is then the whole enforcement surface; there is no policy standing behind it.
 
 ---
 
@@ -590,7 +632,7 @@ profile. Hiding a button is not enforcement. Likewise, the comments insert polic
 /our-mission            Why FLARE exists. In the nav for signed-out visitors only
 /contribute             How to upload to YouTube and post here. In the nav for signed-in accounts only
 /login                  Sign in or create an account: Google, or email and password
-/onboarding             First run: username, display name, grade, school, city
+/onboarding             First run: username, display name, grade, birth date. School and city optional
 /dashboard              Own videos, drafts, pending collaboration invites
 /dashboard/upload       Gated on can_post
 /dashboard/admin        Gated on can_moderate. All videos incl. deleted, restore, reported comments
@@ -1096,18 +1138,33 @@ one theme: each was a rule the application enforced and the database did not.
 - **`onboarded` implied the consent stamps and nothing else**, so `attest_age` then `accept_terms`
   then `PATCH onboarded=true` produced an onboarded account with a null `grade`. Phase 3 will read
   `onboarded` as meaning the profile is complete, so
-  `profiles_onboarded_requires_profile` now requires `grade`, `city` and `school` to be present and
-  non-blank. It is a second constraint rather than an edit to
-  `profiles_onboarded_requires_consent`, so a violation says which half is missing.
+  `profiles_onboarded_requires_profile` now requires `grade` to be present and non-blank. It
+  originally required `city` and `school` as well; see the note below. It is a second constraint
+  rather than an edit to `profiles_onboarded_requires_consent`, so a violation says which half is
+  missing.
 
-> **`city` and `school` became required fields, which is a change in what we collect from minors.**
-> They were optional in the onboarding form and are now mandatory, because the constraint above
-> cannot be satisfied without them. Both are still private under rule 9.1, still city-only under
-> rule 9.3, and the completeness requirement is what phase 3 wanted. But the honest description is
-> that FLARE now requires two more pieces of information from every student before they can use the
-> site, where before it asked. If that is the wrong trade, the lever is the constraint, not the
-> form: drop `city` and `school` from `profiles_onboarded_requires_profile` and make the fields
-> optional again in the same commit.
+> **`city` and `school` became required fields, and on 9 September they were made optional again.**
+> Requiring them was a change in what we collect from minors, recorded here at the time with the
+> lever for undoing it: "drop `city` and `school` from `profiles_onboarded_requires_profile` and
+> make the fields optional again in the same commit." That is what `20260909000000` does.
+>
+> **It was the wrong trade, and the reason is section 9's first line.** Most users are minors, and
+> requiring a student to name their school and their city before they can watch a video collects two
+> more identifying facts about a child than the site has a use for. `grade` is the one of the three
+> the product actually consumes: it is what the difficulty ladder is pitched at. The completeness
+> requirement phase 3 wanted is satisfied by `grade` alone, because nothing reads the other two.
+>
+> **What did not change:** all three stay private under rule 9.1, absent from `public_profiles` by
+> construction rather than merely unrendered, and `city` stays city-only under rule 9.3. This
+> narrows what is asked for; it moves nothing into public view. Existing values are untouched, so
+> accounts that already gave a city and a school keep them.
+>
+> **Three places had to move together**, and this is the shape of that kind of change: the
+> constraint, the server action (which rejected blanks before the constraint ever saw them, and now
+> writes `null` rather than `''` so an unanswered field does not look answered), and the form labels,
+> which say "optional" rather than silently dropping `required`. The privacy policy was the fourth:
+> its Changes section promises a new date whenever what we collect changes, so it is dated
+> 9 September and its collection list now separates `grade` from the two optional fields.
 
 ### Phase 3 status
 
@@ -1314,6 +1371,39 @@ invisible to the database as well.
 | `comments_enabled` off hides the whole section | yes |
 | `comments_enabled` off refuses a direct PostgREST insert | `42501` |
 
+### The 14 September audit
+
+A full pass over the live project and the running app: 23 security-boundary probes, 14 row-visibility
+probes, the behavioural rules from sections 2, 4 and 6, every route signed out and signed in, and
+the static checks. Everything was exercised against the deployed database from a real authenticated
+session rather than read out of the migrations.
+
+**Two findings, both the same shape**, fixed in `20260914000000`: the two write paths that feed the
+officer queue had drifted out from under the guards every other write path has. `report_comment`
+never checked suspension, and `flag_blocked_comment` checked only that the caller was signed in.
+Section 6 now records why prose about "every insert policy" could not have caught either one.
+
+**What held.** Self-promotion is refused on every capability column (`42501`); the suspension
+columns are equally ungrantable; `avatar_url` refuses an offsite URL (`23514`); all eight reserved
+usernames are refused; a plain member reading `audit_log`, `reports` or another person's `profiles`
+row gets `[]` rather than data; every privileged RPC refuses a plain member; drafts, `hidden`, and
+soft-deleted videos are invisible to anon through both the base table and the view, as are deleted
+comments and comments on non-public videos; the rate limit, the kill switch and suspension all
+refuse at the API and not merely in the UI; the filter refuses profanity and `sh1t` while accepting
+Scunthorpe, Dickinson and assassin; and a refused comment still keeps the text the person typed.
+
+**Three things the audit got wrong before it got them right**, all the same error in different
+clothes, and all worth remembering because each one looked like a finding:
+
+- **A 200 is not a leak.** `audit_log` and `reports` answer `200` to a plain member and return `[]`.
+  RLS filters rather than denies, so asserting on the status code tests nothing. Assert on the body.
+- **A fixture that fails to insert is not a passing test.** The soft-deleted video fixture was
+  rejected by `videos_delete_complete`, and the visibility check downstream then "failed" on an
+  empty response rather than on a real row.
+- **A string match is not a leak either.** "Lamar Academy" appears on `/u/[username]` because it is
+  in the site footer of every page, and the profile uuid appears because the avatar object path is
+  `avatars/<uid>/avatar.webp` and `id` is a deliberate column of `public_profiles`.
+
 ### Media assets
 
 Masters live in `media-src/`, which is gitignored. Only encoded web versions belong in `public/`.
@@ -1323,6 +1413,14 @@ Masters live in `media-src/`, which is gitignored. Only encoded web versions bel
   pure waste), H.264 CRF 32, `+faststart`. The 16s hero master went from 79MB to 4.7MB this way.
 - Filenames in `public/` must be lowercase. Vercel serves from a case-sensitive filesystem, so
   `HERO.mp4` resolves locally on Windows and 404s in production.
+
+  > **The real invariant is that the reference matches the file exactly; lowercase is the habit that
+  > makes that automatic.** Five files break the letter of this rule and are fine:
+  > `FLARE_LOGO.png`, `FLARE_LOGO_MIST.png`, `FLARE_WORDMARK.png`, `FLARE_WORDMARK_MIST.png` and
+  > the untracked `Favicon180180.png`. The four referenced ones are spelled the same way in `src/`
+  > as on disk and all answer 200 in production, checked 14 September. Renaming them means editing
+  > every reference in the same commit, so the rule is worth keeping for *new* files rather than
+  > worth a rename.
 - Generate a poster frame alongside any background video and set it on the element, so the first
   paint is not a black rectangle. Use frame 0 where the footage does not fade in, so the poster
   matches the first played frame instead of cutting to a different one. A poster sitting behind a

@@ -139,22 +139,26 @@ export function OnboardingForm({
             )}
           </div>
 
+          {/*
+            School and city are optional. They carry the word rather than an
+            asterisk on everything else, because grade is the only other field
+            in this group and marking one field optional is less noise than
+            marking two required.
+          */}
           <Field
             name="school"
-            label="School"
+            label="School (optional)"
             defaultValue={v.school}
             error={state.errors.school}
-            required
             maxLength={120}
           />
 
           <Field
             name="city"
-            label="City"
+            label="City (optional)"
             hint="City only, never a street address."
             defaultValue={v.city}
             error={state.errors.city}
-            required
             maxLength={80}
           />
         </div>
