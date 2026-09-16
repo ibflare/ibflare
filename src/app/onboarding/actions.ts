@@ -2,13 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { deleteAuthUser } from "@/lib/supabase/admin";
 import { GRADES } from "@/lib/taxonomy";
 
 export type OnboardingState = {
   errors: Partial<
     Record<
-      | "birth"
       | "username"
       | "display_name"
       | "grade"
@@ -20,8 +18,6 @@ export type OnboardingState = {
     >
   >;
   values: {
-    birth_month: string;
-    birth_year: string;
     username: string;
     display_name: string;
     grade: string;
@@ -48,8 +44,6 @@ export async function completeOnboarding(
   formData: FormData,
 ): Promise<OnboardingState> {
   const values = {
-    birth_month: String(formData.get("birth_month") ?? ""),
-    birth_year: String(formData.get("birth_year") ?? ""),
     username: String(formData.get("username") ?? "").trim().toLowerCase(),
     display_name: String(formData.get("display_name") ?? "").trim(),
     grade: String(formData.get("grade") ?? "").trim(),
@@ -58,16 +52,6 @@ export async function completeOnboarding(
   };
 
   const errors: OnboardingState["errors"] = {};
-
-  const month = Number(values.birth_month);
-  const year = Number(values.birth_year);
-
-  if (
-    !Number.isInteger(month) || month < 1 || month > 12 ||
-    !Number.isInteger(year) || year < 1900
-  ) {
-    errors.birth = "Choose a month and a year.";
-  }
 
   // Reserved names are checked further down, against the database. Format is
   // all that can be judged without a round trip.
@@ -106,7 +90,6 @@ export async function completeOnboarding(
 
   const supabase = await createClient();
 
-  // Captured before the delete below, which invalidates the session.
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -116,43 +99,10 @@ export async function completeOnboarding(
   }
 
   /*
-   * Age is checked first, before a single other field is written.
-   *
-   * The form asks for everything on one page, so an under-13 will have typed a
-   * name and a school by the time they submit. None of it is ever stored: this
-   * call runs before the profile update below, and if it fails the account is
-   * deleted and the request never reaches the write. Typed is not collected.
-   */
-  const { data: oldEnough, error: ageError } = await supabase.rpc("attest_age", {
-    p_birth_month: month,
-    p_birth_year: year,
-  });
-
-  if (ageError) {
-    return { errors: { form: ageError.message }, values };
-  }
-
-  if (oldEnough === false) {
-    await deleteAuthUser(user.id);
-
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // Already invalid once the user is gone. Clearing cookies is the point.
-    }
-
-    // A public page: by now the session is gone, so anything gated would
-    // bounce them to /login with no explanation.
-    redirect("/account-unavailable");
-  }
-
-  /*
-   * Deliberately after the age check, not up with the rest of the validation.
-   *
-   * This is the first thing in the action that sends a typed field anywhere,
-   * and an under-13 has been deleted and redirected by the line above before
-   * it runs. So their chosen name never reaches the database either, on the
-   * same principle as the profile write below.
+   * The age screen used to run here, before any other field was written, so
+   * that an under-13's typed name never reached the database. It was removed
+   * on 16 September along with attest_age and the account deletion that
+   * followed a failure. Nothing in this action asks about age now.
    *
    * is_reserved_username() is the function the check constraint on the column
    * calls, so a name that passes here cannot fail that constraint later. The
@@ -208,11 +158,10 @@ export async function completeOnboarding(
    * leaves the account stuck on this page with no error to show. Insert is
    * column-restricted by 20260830010000, so it cannot set a capability flag.
    *
-   * onboarded is not set here, and cannot be: two check constraints have to be
-   * satisfied first. profiles_onboarded_requires_profile wants grade, which
-   * this write supplies, and profiles_onboarded_requires_consent wants both
-   * consent stamps, one of which is written below. The final update is what
-   * flips the flag.
+   * onboarded is not set here, and as of 20260916010000 cannot be from any
+   * client at all: the column left both grants so that the username lock
+   * cannot be stepped around by unsetting it. complete_onboarding() is the
+   * only writer, and it re-checks grade and the terms stamp itself.
    */
   const { data: updated, error: updateError } = await supabase
     .from("profiles")
@@ -244,19 +193,8 @@ export async function completeOnboarding(
     }
   }
 
-  // Called again because the first call above wrote nothing if the row did not
-  // exist yet. Idempotent, and this is what guarantees age_attested_at is set
-  // before the constraint below is tested.
-  const { error: stampError } = await supabase.rpc("attest_age", {
-    p_birth_month: month,
-    p_birth_year: year,
-  });
-  if (stampError) {
-    return { errors: { form: stampError.message }, values };
-  }
-
   // Stamped server-side by a definer function, so the timestamp is ours rather
-  // than the client's. Separate from the age question by design.
+  // than the client's. The one consent stamp left after the age screen went.
   const { error: termsError } = await supabase.rpc("accept_terms");
   if (termsError) {
     return {
@@ -265,10 +203,10 @@ export async function completeOnboarding(
     };
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ onboarded: true })
-    .eq("id", user.id);
+  // The only path to onboarded = true. It re-reads the row and refuses unless
+  // grade and the terms stamp are both there, so this cannot mark a half
+  // filled profile complete even if the writes above partly failed.
+  const { error } = await supabase.rpc("complete_onboarding");
 
   if (error) {
     return {

@@ -36,7 +36,9 @@ client cover this app.
 >    project currently reports `mailer_autoconfirm: false`, which is correct. Do not turn it off,
 >    not even to make local testing quicker.
 > 2. **The age gate is gone.** §9.4's under-13 protection rested entirely on Google performing age
->    verification. An email/password signup asks nobody's age. See §9.4.
+>    verification. An email/password signup asks nobody's age. That was answered with the app's own
+>    age screen, and then that screen was removed too on 16 September, so the statement is once
+>    again simply true: nothing anywhere asks how old a visitor is. See §9.4.
 
 > **Confirmation links arrive three different ways.** `/auth/confirm` has to handle all of them, and
 > the first version handled only the first, so every real confirmation email failed with "That
@@ -234,10 +236,14 @@ in step.
 > sorting by. Level 1 was already in that form and is unchanged.
 >
 > **The age brackets were explicitly kept as they are.** Level 1's "Ages 13–14" was set to 13 rather
-> than 11 because an account was required to watch and the age screen blocks under-13 signups, so
+> than 11 because an account was required to watch and the age screen blocked under-13 signups, so
 > nobody younger could reach it. Viewing is public now, so a 12-year-old can watch Spark and the
 > bracket no longer describes an access rule. The client's decision was to keep it, and it reads as
 > what the level is pitched at, which is what the column means for every other row.
+>
+> Both halves of that reasoning have since lapsed: the gate went on 3 September and the age screen
+> itself went on 16 September, so "Ages 13–14" now describes nothing but the pitch. Which is what it
+> always meant for rows 2 to 5, so the label is finally consistent rather than newly wrong.
 
 Topics (enum): `taxes`, `banking`, `credit`, `investing`, `career`, `macro`, `micro`, `corporate`.
 
@@ -254,10 +260,9 @@ profiles (
   can_moderate      boolean not null default false,
   can_manage_users  boolean not null default false,
   grade             text,      -- PRIVATE. 9-12 | college | educator | other
-  city              text,      -- PRIVATE. City only, never an address
-  school            text,      -- PRIVATE
-  birth_year        smallint,  -- PRIVATE. Year only. The month is never stored. See §9.4
-  age_attested_at   timestamptz,  -- set only by attest_age()
+  city              text,      -- PRIVATE. City only, never an address. Optional
+  school            text,      -- PRIVATE. Optional
+  -- birth_year and age_attested_at were dropped with the age screen, see §9.4
   terms_accepted_at timestamptz,  -- set only by accept_terms()
   onboarded         boolean not null default false,
   suspended_at      timestamptz,
@@ -483,9 +488,11 @@ RLS on every table. Write `has_capability(cap text)` as a `SECURITY DEFINER` fun
 > That's what the definer function is for. Never inline the subquery.
 
 - **profiles** — view `public_profiles` exposes `id, username, display_name, title, avatar_url, bio,
-  role`. The base table is readable by its owner and by `can_manage_users` holders only. Users
-  update their own row but **cannot** touch `role`, `title`, or any capability flag; those go
-  through a definer function that checks `can_manage_users` and writes `audit_log`.
+  role`, for onboarded accounts only. The base table is readable by its owner and by
+  `can_manage_users` holders only. Users update their own row but **cannot** touch `role`, `title`,
+  any capability flag, or `onboarded`; those go through definer functions
+  (`set_user_permissions`, `complete_onboarding`) that check what they need to and write `audit_log`
+  where a record is owed.
 
 > **The grant on this view and `REQUIRE_ACCOUNT_TO_VIEW` have to move together.** The view is
 > `security_invoker = false`, so it bypasses RLS on the base table and the grant is the only thing
@@ -516,7 +523,8 @@ RLS on every table. Write `has_capability(cap text)` as a `SECURITY DEFINER` fun
   accept, decline and untag all go through the definer functions in `20260906000000`. See the phase
   4 status note for why relationship rules do not fit column grants.
 - **comments** — non-deleted comments on published videos readable by anon. Insert by any onboarded
-  user. Update own within 5 minutes; delete own, or any with `can_moderate`.
+  user, and the body must pass `comment_is_clean()`. Update own within 5 minutes, same body check;
+  delete own, or any with `can_moderate`.
 - **reports / audit_log** — readable only with `can_moderate`. Insert on `reports` by any signed-in user.
 - **site_settings** — readable by anon (the app needs to know if comments are on). **No update
   policy and no update grant:** `set_site_settings` is the only path, so every flip is audited and
@@ -651,7 +659,10 @@ Hiding a button is not enforcement. Likewise, the comments insert policy checks
 > - The privacy policy says the site is at **`flare.example.org`**, which is a placeholder. Replace
 >   it with the real domain when there is one.
 > - Neither has been reviewed by an adult with authority over the club. They describe collection of
->   `grade`, `city`, `school`, and `birth_year` from minors, so that review matters.
+>   `grade`, `city` and `school` from minors, so that review matters. **The same review has to add a
+>   13-and-over requirement**, because the age screen was removed on 16 September and nothing in the
+>   product states the rule any more. §9.4 has what the wording needs to cover.
+> - Both documents still describe a birth date being collected. They do not collect one now.
 >
 > **The privacy policy and the viewing gate have to move together, and both have now moved twice.**
 > The "who can see what" table is the precise statement of who sees what, so it has to be edited in
@@ -705,9 +716,10 @@ No bulk actions, no CSV import, no inline table editing. One person at a time, o
 Middleware: unauthenticated users hitting `/dashboard/*` go to `/login`. Signed-in users with
 `onboarded = false` are redirected to `/onboarding` from everywhere except `/onboarding`.
 
-`/login`, `/onboarding`, `/auth/*`, and `/account-unavailable` render without the footer: it is a
-site-wide navigation surface, and three columns of links plus a liability notice under a form asking
-for a date of birth is noise. The list is in `ConditionalFooter`.
+`/login`, `/onboarding`, and `/auth/*` render without the footer: it is a site-wide navigation
+surface, and three columns of links plus a liability notice under a sign-up form is noise. The list
+is in `ConditionalFooter`. `/account-unavailable` was a fourth entry until 16 September; the page
+existed only for someone deleted by the age screen and went with it.
 
 `/login` additionally has no header, being one task with one exit. The list is in
 `ConditionalHeader`, which takes `SiteHeader` as children because that component is an async server
@@ -865,42 +877,43 @@ Most users are minors. Hard constraints, not preferences.
 2. Public identity is username, display name, and title. Encourage first name + last initial.
 3. Never collect a street address, phone number, or date of birth.
 4. ~~Google sign-in only, which puts age gating on Google's side. No under-13 signup path.~~
-   Superseded. Email/password sign-in was added after phase 2, so age gating no longer rests on
-   Google. **The app now runs its own age screen**, and the state of play is:
+   ~~Superseded. The app now runs its own age screen.~~
+   **Superseded twice. There is no age screen. The site does not ask anybody's age.**
 
-   **The age screen.** Part of the single onboarding form, not a separate step. Two selects, birth
-   month and birth year, neither pre-selected, and no text anywhere naming a threshold or saying
-   what happens next. `attest_age()` computes the age in Postgres and writes `age_attested_at` only
-   if it clears 13; under that it writes nothing at all, since recording the attempt would mean
-   holding data about a child who may not have an account.
+   Removed on the client's instruction, 16 September, in `20260916000000`. Gone: the birth month
+   and year selects, `attest_age()`, `birth_year`, `age_attested_at`, the `/account-unavailable`
+   page, and `src/lib/supabase/admin.ts`, which existed only to delete the account of someone who
+   failed. `terms_accepted_at` stays and is now the only consent stamp;
+   `profiles_onboarded_requires_consent` requires it alone.
 
-   **Nothing is stored for an under-13, even though the form asks for everything at once.** The
-   action calls `attest_age()` before it writes a single other field. An under-13 will have typed a
-   name and a school by the time they submit, and none of it reaches the database: the call fails,
-   the account is deleted, and the request redirects before the profile write is reached. Typed is
-   not collected. Keep that ordering if this action is ever refactored.
+   **This is the largest single reduction in what FLARE collects from minors, and it removes the
+   only mechanism that kept under-13s out.** Both halves are true and neither cancels the other.
+   Nothing near a date of birth is collected from anybody now, which rule 3 has always wanted. And
+   a twelve-year-old can create an account, give a name and a grade, and comment.
 
-   **Only the year is stored.** The month is a function argument used to work out whether this
-   year's birthday has passed, and is discarded. A year on its own is not a date of birth, so
-   rule 3 above still holds. Where the month makes the age ambiguous, it resolves downward: someone
-   who might still be 12 is treated as 12.
+   **The requirement did not go away with the mechanism.** A site collecting a name, a grade and
+   comments from children under 13 is the thing COPPA is about. What replaces the form control is a
+   stated rule in `/privacy` and `/terms`, which **is pending in the client's legal review with the
+   faculty sponsor**. Until that lands the site asks for less and promises nothing about who may
+   sign up, and that gap is real: it is a documentation gap, not a code one, and it cannot be closed
+   from here.
 
-   **Why a birth date and not a checkbox.** The FTC treats "I am 13 or older" as a leading design,
-   because it tells the reader which answer opens the door. A neutral age screen asks for a birth
-   date without signalling the cutoff. This is why the page says nothing about an age requirement,
-   and why neither select has a default.
+   Whoever writes that wording needs three things in front of them:
+   - The site is for ages 13 and over, stated somewhere a student and a parent will both see.
+   - Nothing verifies it. The rule is a term of service, not a gate, and the honest version says so.
+   - What happens when an officer learns an account holder is under 13. Suspension is the existing
+     lever and §2 makes it reversible; deletion is available for an account that has never
+     moderated anything.
 
-   **Failing the age screen deletes the account.** Signup has already created an `auth.users` row
-   holding an email address by the time the age screen runs, and `attest_age()` deliberately writes
-   nothing. Leaving that row would mean holding a child's email address with no profile attached and
-   no way for them to ever use it. The action deletes the auth user through the service role client
-   in `src/lib/supabase/admin.ts`, which cascades to `profiles`, then signs them out. That file
-   imports `server-only`, so pulling it into a client component is a build error rather than a
-   leaked service role key.
-
-   **Retry is deliberately not prevented.** A blocked visitor can reload and give a different year.
-   Stopping that would mean recording that this person failed, which means keeping data about the
-   child, which is the thing the deletion above exists to avoid. The weaker gate is the right trade.
+   **What was removed, kept here because it is the argument for putting something back.** The old
+   screen asked for a birth month and year with neither pre-selected and no text naming a threshold,
+   because the FTC treats "I am 13 or older" as a leading design: it tells the reader which answer
+   opens the door. It computed the age in Postgres, stored only the year, resolved an ambiguous
+   month downward, and wrote nothing at all for an under-13 so that no data about a child was kept.
+   A failure deleted the `auth.users` row, because signup had already captured an email address.
+   Retry was deliberately not blocked, since recording the failure would have meant keeping the very
+   data the deletion avoided. That reasoning still holds if an age screen is ever reinstated; it is
+   not an argument that this one should not have been removed, which was the client's call.
 
    **Decided: watching is public. An account is only needed in order to contribute.**
    `REQUIRE_ACCOUNT_TO_VIEW` in `src/proxy.ts` is `false`, and `20260903000000` restores the anon
@@ -914,9 +927,13 @@ Most users are minors. Hard constraints, not preferences.
    written for the youngest readers. That was recorded as the open question. It is now answered: a
    free financial literacy library for a public school district should not be behind a login.
 
-   **Under-13 visitors can watch, and still cannot participate.** They cannot pass the age screen,
-   so they cannot hold an account, so they cannot post or comment. Nothing is collected from them,
-   because nothing is collected from anyone who is only reading.
+   **Anyone can watch, and nothing is collected from a visitor who only reads.** That half is
+   unchanged and is the point of the public library.
+
+   ~~**Under-13 visitors can watch, and still cannot participate.** They cannot pass the age screen,
+   so they cannot hold an account.~~ **No longer true.** The age screen was the entire reason
+   under-13s could not hold an account, and it is gone. Participation is now open to anyone who can
+   receive a confirmation email, which is the gap the legal review has to close in words.
 
    **Loose end from the reversal.** Level 1 is currently labelled "Ages 13–14" in section 3 and in
    `DIFFICULTY_LEVELS`, and it was relabelled to that specifically because no one younger could
@@ -1283,9 +1300,10 @@ Decisions worth knowing:
 
 > **Profile editing was the one part of suspension that was never enforced.** Section 2 says a
 > suspended user cannot edit their profile, and the owner update policy checked only that the row
-> belonged to the caller. It now checks `is_suspended()` as well. `attest_age`, `accept_terms` and
-> `clear_avatar` are unaffected, being definer functions, so a suspended account can still finish
-> onboarding and a moderator can still clear a suspended person's picture.
+> belonged to the caller. It now checks `is_suspended()` as well. `accept_terms`,
+> `complete_onboarding` and `clear_avatar` are unaffected, being definer functions, so a suspended
+> account can still finish onboarding and a moderator can still clear a suspended person's picture.
+> (`attest_age` was the fourth name in this list until the age screen was removed.)
 
 > **`/suspended` is not a wall and nothing redirects to it.** Section 2 is explicit that a suspended
 > user can still sign in and watch. The proxy knows nothing about suspension; the page is reached
@@ -1403,6 +1421,70 @@ clothes, and all worth remembering because each one looked like a finding:
 - **A string match is not a leak either.** "Lamar Academy" appears on `/u/[username]` because it is
   in the site footer of every page, and the profile uuid appears because the avatar object path is
   `avatars/<uid>/avatar.webp` and `id` is a deliberate column of `public_profiles`.
+
+### The 16 September hardening
+
+Eight fixes from the audit, all client-approved, in `20260916010000`. Seven of the eight are the
+same move: a rule the application enforced and the database did not, pushed down into Postgres so a
+direct PostgREST call meets it too.
+
+| # | Was | Now |
+|---|---|---|
+| 1 | `thumbnail_url` accepted any URL | `videos_thumbnail_url_allowed`, YouTube hosts only |
+| 2 | Video UPDATE checked ownership alone | also `can_post` and not suspended, matching INSERT |
+| 3 | Word filter ran only in the server action | `comment_is_clean()` in the insert **and** update policies |
+| 4 | `public_profiles` listed every half-signup | onboarded accounts only |
+| 5 | Any filename inside your own avatar folder | exactly `<uid>/avatar.webp` |
+| 6 | `avatar_url` accepted any Supabase project | this project's ref only |
+| 7 | `onboarded` was in the client grants | `complete_onboarding()` is the only writer |
+| 8 | `flag_blocked_comment` had no volume limit | five a minute |
+
+Four of these are worth more than their one-line summary:
+
+> **The word filter in the database is a mirror, not a move.** `src/lib/moderation/` stays exactly
+> where it was and still produces the sentence a person reads, because a policy can only refuse and
+> "new row violates row-level security policy" is not a thing to show a fifteen-year-old. What
+> changed is that the rule is now *true* of a write that never touches the form.
+>
+> The list lives in `moderation_terms`, which has **no grants to any client role at all**: only
+> `comment_is_clean()` reads it, and that is a definer function. §4 says the list is not worth
+> publishing, and a table a client can select from is a published list. `normalize_for_moderation()`
+> mirrors `normalize()` in `index.ts` and the two have to be kept in step; the migration generates
+> its wordlist rows directly from `wordlist.ts` for that reason, rather than being typed twice.
+>
+> **The update policy gets the check as well as the insert policy**, because editing a clean comment
+> into a dirty one is the obvious way past a check that only runs once.
+
+> **`onboarded` leaving the grants is what makes the username lock real.**
+> `enforce_username_immutable()` refuses a rename when `old.onboarded` is true, and `onboarded` was
+> itself writable by the client, so the lock was opt-out: `PATCH onboarded=false`, rename, `PATCH
+> onboarded=true`. Three ordinary requests and the key behind every `/u/<username>` link has moved.
+> A guard whose own precondition is client-writable is not a guard.
+
+> **Pinning the avatar object name closes a gap the folder check never covered.** The old policy
+> stopped you writing into somebody else's folder and permitted anything inside your own: any name,
+> any number of objects. §6 already described one object per user at a fixed name, which was true of
+> what the app uploaded and not of what the bucket accepted.
+>
+> The delete policy deliberately still matches on the *folder* rather than the fixed name, so
+> objects left behind by the looser policy can still be removed.
+
+> **The avatar URL constraint now hardcodes the project ref.** `[a-z0-9]+\.supabase\.co` accepted
+> storage on anybody's Supabase project, which is an offsite URL wearing a familiar hostname. The
+> cost is a migration that is no longer portable: **if the project is ever moved or restored under a
+> new ref, this constraint rejects every avatar until it is edited.**
+
+The open redirect fix is the one that is not a database change. `safePath()` moved to
+`src/lib/safe-path.ts` and is shared by `auth/actions.ts`, `auth/callback/route.ts` and
+`login/page.tsx`, which held three copies of it.
+
+> **`startsWith("/") && !startsWith("//")` reads as "same-site path" and is not one.** Browsers
+> normalise a backslash to a forward slash in the authority position, so `/\evil.example` passes a
+> check written that way and is then resolved as `//evil.example`, which is protocol-relative to
+> somebody else's host. One character walks the whole test. The shared version rejects a backslash
+> anywhere, and control characters too, since a tab or newline inside an authority is ignored during
+> URL parsing. It rejects rather than repairs: a validator that fixes its input invites you to find
+> the input it fixes into something else.
 
 ### Media assets
 

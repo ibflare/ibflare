@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { safePath } from "@/lib/safe-path";
 import { LoginPanel } from "./LoginPanel";
 import { QuoteRotator } from "./QuoteRotator";
 
@@ -21,7 +22,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   } = await supabase.auth.getUser();
 
   if (user) {
-    if (next.startsWith("/") && !next.startsWith("//")) redirect(next);
+    const destination = safePath(next);
+    if (destination) redirect(destination);
 
     const { data: profile } = await supabase
       .from("profiles")

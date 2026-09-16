@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { safePath } from "@/lib/safe-path";
 
 /**
  * Built from the request, so this works on localhost, previews, and prod.
@@ -29,10 +30,9 @@ async function siteOrigin() {
   return "http://localhost:3000";
 }
 
-/** `next` arrives from a query string, so anything off-site is discarded. */
-function safePath(next: string) {
-  return next.startsWith("/") && !next.startsWith("//") ? next : "";
-}
+// safePath now lives in src/lib/safe-path.ts, shared with the callback route
+// and the login page. It used to be three copies of a check that missed
+// backslash destinations; see that file.
 
 export async function signInWithGoogle(formData: FormData) {
   const next = safePath(String(formData.get("next") ?? "").trim());

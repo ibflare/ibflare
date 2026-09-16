@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safePath } from "@/lib/safe-path";
 
 /**
  * Where Google sends the user back to. Supabase hands us a one-time code in
@@ -41,8 +42,9 @@ export async function GET(request: NextRequest) {
 
   // Only ever redirect to a path on this site. `next` arrives from the query
   // string, so treating it as a full URL would be an open redirect.
-  if (next.startsWith("/") && !next.startsWith("//")) {
-    return NextResponse.redirect(`${origin}${next}`);
+  const destination = safePath(next);
+  if (destination) {
+    return NextResponse.redirect(`${origin}${destination}`);
   }
 
   // No explicit destination, so send them to their own profile. /dashboard is

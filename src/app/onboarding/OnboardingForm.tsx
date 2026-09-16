@@ -5,17 +5,10 @@ import { useActionState } from "react";
 import { completeOnboarding, type OnboardingState } from "./actions";
 import { GRADES } from "@/lib/taxonomy";
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
 export function OnboardingForm({
   initial,
-  years,
 }: {
   initial: OnboardingState["values"];
-  years: number[];
 }) {
   const [state, formAction, pending] = useActionState(completeOnboarding, {
     errors: {},
@@ -36,53 +29,11 @@ export function OnboardingForm({
       )}
 
       {/*
-        Neutral age screen: two selects, neither pre-selected, and nothing here
-        naming a threshold. The FTC treats "I am 13 or older" as leading,
-        because it tells the reader which answer opens the door. CLAUDE.md 9.4.
+        The age screen was removed on 16 September. Two selects asking for a
+        birth month and year used to open this form; the site no longer asks
+        anybody's age, so nothing is collected here that is not needed to make
+        a profile. CLAUDE.md 9.4 records what that trades away.
       */}
-      <fieldset>
-        <legend className="label text-ink/60">Date of birth</legend>
-        <div className="mt-3 flex flex-wrap gap-3">
-          <select
-            name="birth_month"
-            defaultValue={v.birth_month}
-            aria-label="Birth month"
-            required
-            className="rounded-lg border border-ink/25 bg-paper px-4 py-3 text-ink"
-          >
-            <option value="" disabled>
-              Month
-            </option>
-            {MONTHS.map((label, i) => (
-              <option key={label} value={i + 1}>
-                {label}
-              </option>
-            ))}
-          </select>
-
-          <select
-            name="birth_year"
-            defaultValue={v.birth_year}
-            aria-label="Birth year"
-            required
-            className="rounded-lg border border-ink/25 bg-paper px-4 py-3 text-ink"
-          >
-            <option value="" disabled>
-              Year
-            </option>
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
-        {state.errors.birth && (
-          <p role="alert" className="mt-2 text-sm text-hot">
-            {state.errors.birth}
-          </p>
-        )}
-      </fieldset>
 
       <Field
         name="username"

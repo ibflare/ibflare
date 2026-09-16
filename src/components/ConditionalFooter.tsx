@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
  *
  * These pages keep the header, so the wordmark and a way out are still there.
  */
-const BARE = ["/login", "/onboarding", "/auth", "/account-unavailable"];
+const BARE = ["/login", "/onboarding", "/auth"];
 
 /**
  * Takes SiteFooter as children rather than importing it, mirroring
