@@ -32,6 +32,7 @@ const TAKE_PART_SIGNED_IN = {
   links: [
     { href: "/contribute", label: "How to contribute" },
     { href: "/dashboard/upload", label: "Publish a video" },
+    { href: "/dashboard/write", label: "Write an article" },
   ],
 };
 

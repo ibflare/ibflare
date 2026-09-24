@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { VideoCard, type VideoRow } from "@/components/VideoCard";
+import { ArticleCard, type ArticleRow } from "@/components/ArticleCard";
 import { DIFFICULTY_LEVELS, TOPICS, TOPIC_LABELS, difficultyAccent } from "@/lib/taxonomy";
 
 export const metadata = {
   title: "Library",
   description:
-    "Every FLARE video, sorted by difficulty. Search, or filter by level and topic.",
+    "Every FLARE video and article, sorted by difficulty. Search, or filter by level and topic.",
 };
+
+/** The two things the library holds. `kind` comes from public_library. */
+const KINDS = ["video", "article"] as const;
 
 const PER_PAGE = 12;
 
@@ -20,6 +24,7 @@ function readParams(raw: Record<string, string | string[] | undefined>) {
 
   const difficultyRaw = one("difficulty");
   const topicRaw = one("topic");
+  const kindRaw = one("kind");
   const pageRaw = Number(one("page"));
 
   return {
@@ -28,14 +33,17 @@ function readParams(raw: Record<string, string | string[] | undefined>) {
       ? difficultyRaw
       : "",
     topic: (TOPICS as readonly string[]).includes(topicRaw) ? topicRaw : "",
+    kind: (KINDS as readonly string[]).includes(kindRaw) ? kindRaw : "",
     page: Number.isFinite(pageRaw) && pageRaw > 1 ? Math.floor(pageRaw) : 1,
   };
 }
 
+type Current = { q: string; difficulty: string; topic: string; kind: string };
+
 /** A link that keeps the other filters, and always resets to page one. */
 function href(
-  current: { q: string; difficulty: string; topic: string },
-  change: Partial<{ difficulty: string; topic: string; page: number }>,
+  current: Current,
+  change: Partial<{ difficulty: string; topic: string; kind: string; page: number }>,
 ) {
   const params = new URLSearchParams();
   const merged = { ...current, ...change };
@@ -43,6 +51,7 @@ function href(
   if (current.q) params.set("q", current.q);
   if (merged.difficulty) params.set("difficulty", merged.difficulty);
   if (merged.topic) params.set("topic", merged.topic);
+  if (merged.kind) params.set("kind", merged.kind);
   if (change.page && change.page > 1) params.set("page", String(change.page));
 
   const query = params.toString();
@@ -50,19 +59,25 @@ function href(
 }
 
 export default async function LibraryPage(props: PageProps<"/library">) {
-  const { q, difficulty, topic, page } = readParams(await props.searchParams);
+  const { q, difficulty, topic, kind, page } = readParams(
+    await props.searchParams,
+  );
 
   const supabase = await createClient();
 
   /*
-   * public_videos, not the videos table: it carries the owner's public fields
-   * for the byline, and it already filters to published and non-deleted rows.
-   * See 20260904000000.
+   * public_library, not the two tables: it unions public_videos and
+   * public_articles, already filtered to published and non-deleted, and it
+   * carries the owner's public fields for the byline. See 20260923000000.
+   *
+   * The union is what makes search, ordering, `count` and `range` mean the
+   * same thing they did when the library held one kind of row. Two queries
+   * merged here would make "page 2" meaningless.
    */
   let query = supabase
-    .from("public_videos")
+    .from("public_library")
     .select(
-      "id, title, description, youtube_id, thumbnail_url, duration_s, difficulty, topic, published_at, owner_username, owner_display_name, owner_avatar_url, collaborators",
+      "kind, id, title, description, youtube_id, thumbnail_url, duration_s, difficulty, topic, published_at, owner_username, owner_display_name, owner_avatar_url, collaborators, preview, reading_minutes",
       { count: "exact" },
     );
 
@@ -77,6 +92,7 @@ export default async function LibraryPage(props: PageProps<"/library">) {
   if (q) query = query.textSearch("search_tsv", q, { type: "websearch" });
   if (difficulty) query = query.eq("difficulty", Number(difficulty));
   if (topic) query = query.eq("topic", topic);
+  if (kind) query = query.eq("kind", kind);
 
   const from = (page - 1) * PER_PAGE;
 
@@ -84,11 +100,12 @@ export default async function LibraryPage(props: PageProps<"/library">) {
     .order("published_at", { ascending: false })
     .range(from, from + PER_PAGE - 1);
 
-  const videos = (data ?? []) as VideoRow[];
+  type LibraryRow = (VideoRow & ArticleRow) & { kind: "video" | "article" };
+  const items = (data ?? []) as LibraryRow[];
   const total = count ?? 0;
   const lastPage = Math.max(1, Math.ceil(total / PER_PAGE));
-  const filtering = Boolean(q || difficulty || topic);
-  const current = { q, difficulty, topic };
+  const filtering = Boolean(q || difficulty || topic || kind);
+  const current = { q, difficulty, topic, kind };
 
   return (
     <section>
@@ -149,13 +166,28 @@ export default async function LibraryPage(props: PageProps<"/library">) {
               </Pill>
             ))}
           </Filter>
+
+          <Filter label="Kind">
+            <Pill href={href(current, { kind: "" })} active={!kind}>
+              All
+            </Pill>
+            <Pill href={href(current, { kind: "video" })} active={kind === "video"}>
+              Videos
+            </Pill>
+            <Pill
+              href={href(current, { kind: "article" })}
+              active={kind === "article"}
+            >
+              Articles
+            </Pill>
+          </Filter>
         </div>
 
         {error ? (
           <p role="alert" className="mt-14 leading-relaxed text-ink/70">
             The library could not be loaded just now. Try again in a moment.
           </p>
-        ) : videos.length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="mt-14 max-w-xl">
             <p className="font-display text-2xl leading-snug font-medium">
               {filtering ? "Nothing matches that yet" : "The library is empty"}
@@ -163,7 +195,7 @@ export default async function LibraryPage(props: PageProps<"/library">) {
             <p className="mt-4 leading-relaxed text-ink/70">
               {filtering
                 ? "Try a different level or topic, or clear the filters."
-                : "Videos will show up here as members publish them."}
+                : "Videos and articles will show up here as members publish them."}
             </p>
             {filtering && (
               <Link
@@ -177,7 +209,18 @@ export default async function LibraryPage(props: PageProps<"/library">) {
         ) : (
           <>
             <p className="label mt-12 text-ink/45">
-              {total} {total === 1 ? "video" : "videos"}
+              {total}{" "}
+              {kind === "video"
+                ? total === 1
+                  ? "video"
+                  : "videos"
+                : kind === "article"
+                  ? total === 1
+                    ? "article"
+                    : "articles"
+                  : total === 1
+                    ? "item"
+                    : "items"}
             </p>
 
             {/*
@@ -186,11 +229,15 @@ export default async function LibraryPage(props: PageProps<"/library">) {
               renders an empty cell as a grey rectangle.
             */}
             <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {videos.map((video) => (
+              {items.map((item) => (
                 // A grid item stretches to the row height, so the card's
                 // h-full has something definite to resolve against.
-                <li key={video.id}>
-                  <VideoCard video={video} />
+                <li key={`${item.kind}-${item.id}`}>
+                  {item.kind === "article" ? (
+                    <ArticleCard article={item} />
+                  ) : (
+                    <VideoCard video={item} />
+                  )}
                 </li>
               ))}
             </ul>

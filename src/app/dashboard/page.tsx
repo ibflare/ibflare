@@ -4,6 +4,7 @@ import { DIFFICULTY_LEVELS, difficultyAccent } from "@/lib/taxonomy";
 import { formatDuration } from "@/lib/youtube";
 import { InviteResponse } from "./InviteResponse";
 import { VideoRowControls } from "./VideoRowControls";
+import { ArticleRowControls } from "./ArticleRowControls";
 
 export const metadata = { title: "Dashboard" };
 
@@ -58,6 +59,26 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false });
 
   const owned = (ownedRaw ?? []) as VideoLite[];
+
+  /*
+   * Own articles, from the base table for the same reason: drafts and hidden
+   * rows are only visible here, and public_articles filters them out.
+   */
+  const { data: ownedArticlesRaw } = await supabase
+    .from("articles")
+    .select("id, title, status, difficulty, topic, created_at")
+    .eq("owner_id", profile.id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  const ownedArticles = (ownedArticlesRaw ?? []) as {
+    id: string;
+    title: string;
+    status: string;
+    difficulty: number;
+    topic: string;
+    created_at: string;
+  }[];
 
   // Every tag on my own videos, whatever its state. Pending is mine to see.
   const { data: tagsOnMine } = await supabase
@@ -201,6 +222,65 @@ export default async function DashboardPage() {
                     videoId={video.id}
                     collaborators={collaboratorsFor(video.id)}
                   />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <div className="flex flex-wrap items-baseline justify-between gap-4">
+          <h2 className="font-display text-2xl leading-snug font-medium">
+            My articles
+          </h2>
+          {profile.can_post && !profile.suspended_at && (
+            <Link
+              href="/dashboard/write"
+              className="label rounded-full border border-ink/25 px-5 py-3 text-ink transition-colors hover:border-ink"
+            >
+              Write an article
+            </Link>
+          )}
+        </div>
+
+        {ownedArticles.length === 0 ? (
+          <p className="mt-6 max-w-xl leading-relaxed text-ink/70">
+            {profile.can_post
+              ? "Nothing yet. An article sits in the library beside the videos, under the same level and topic."
+              : "Publishing is switched on per account by a sponsor. Ask an officer if you are joining as a contributor."}
+          </p>
+        ) : (
+          <ul className="mt-6 space-y-4">
+            {ownedArticles.map((article) => {
+              const level = DIFFICULTY_LEVELS.find(
+                (l) => l.level === article.difficulty,
+              );
+              return (
+                <li
+                  key={article.id}
+                  className="rounded-2xl border border-ink/15 p-5"
+                >
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span
+                      className="label"
+                      style={{ color: difficultyAccent(article.difficulty) }}
+                    >
+                      {article.difficulty}. {level?.name}
+                    </span>
+                    {article.status !== "published" && (
+                      <span className="label text-ink/40">{article.status}</span>
+                    )}
+                  </div>
+                  <Link
+                    href={`/a/${article.id}`}
+                    className="font-display mt-2 block text-lg leading-snug font-medium transition-colors hover:text-ink/70"
+                  >
+                    {article.title}
+                  </Link>
+                  <div className="mt-3">
+                    <ArticleRowControls articleId={article.id} />
+                  </div>
                 </li>
               );
             })}

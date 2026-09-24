@@ -293,6 +293,30 @@ videos (
                  ) stored
 )
 
+-- Written explainers, added 23 September. Mirrors videos deliberately: same
+-- difficulty ladder, same topic enum, same draft/published/hidden, same soft
+-- delete. See the articles status section for the three decisions behind it.
+articles (
+  id            uuid primary key default gen_random_uuid(),
+  title         text not null,
+  description   text,               -- the standfirst on a card
+  body          text not null,      -- PLAIN TEXT. Never markdown, never HTML
+  difficulty    smallint not null check (difficulty between 1 and 5),
+  topic         text not null,
+  owner_id      uuid not null references profiles on delete cascade,
+  status        text not null default 'published',  -- draft|published|hidden
+  view_count    integer not null default 0,
+  created_at    timestamptz not null default now(),
+  published_at  timestamptz,
+  edited_at     timestamptz,
+  deleted_at    timestamptz,
+  deleted_by    uuid references profiles,
+  search_tsv    tsvector generated always as (
+                  to_tsvector('english', coalesce(title,'') || ' ' ||
+                    coalesce(description,'') || ' ' || coalesce(body,''))
+                ) stored
+)
+
 video_collaborators (
   video_id    uuid references videos on delete cascade,
   profile_id  uuid references profiles on delete cascade,
@@ -518,6 +542,11 @@ RLS on every table. Write `has_capability(cap text)` as a `SECURITY DEFINER` fun
 > private columns are absent from this view rather than merely unrendered.
 - **videos** — `status='published' AND deleted_at IS NULL` readable by anon. Insert requires
   `auth.uid() = owner_id AND can_post`. Update/delete for the owner or `can_moderate`.
+- **articles** — `status='published' AND deleted_at IS NULL` readable by anon. Insert and update both
+  require `auth.uid() = owner_id AND can_post AND NOT suspended`, **and the body, title and
+  standfirst must all pass `comment_is_clean()`**, because an article is user-submitted text in
+  exactly the sense a comment is. Moderators may update any. No DELETE policy: `soft_delete_article`
+  and `restore_article` are the path, both audited.
 - **video_collaborators** — readable when the parent video is public and the row is `accepted`, or
   by the owner, the invitee, or a moderator. **No write policies and no write grants:** insert,
   accept, decline and untag all go through the definer functions in `20260906000000`. See the phase
@@ -636,6 +665,7 @@ Hiding a button is not enforcement. Likewise, the comments insert policy checks
 /                       Landing. Mission, what FLARE does at Lamar Academy, difficulty ladder, CTA
 /library                Browse. Search + difficulty + topic filters. Server-rendered, paginated
 /v/[id]                 Video page. Embed, byline with collaborators, comments
+/a/[id]                 Article page. Plain-text body, byline. No comments yet, see below
 /u/[username]           Public profile. Name, title, bio, their videos. No grade/city/school
 /our-mission            Why FLARE exists. In the nav for signed-out visitors only
 /contribute             How to upload to YouTube and post here. In the nav for signed-in accounts only
@@ -643,6 +673,7 @@ Hiding a button is not enforcement. Likewise, the comments insert policy checks
 /onboarding             First run: username, display name, grade, birth date. School and city optional
 /dashboard              Own videos, drafts, pending collaboration invites
 /dashboard/upload       Gated on can_post
+/dashboard/write        Gated on can_post. Write an article
 /dashboard/admin        Gated on can_moderate. All videos incl. deleted, restore, reported comments
 /dashboard/admin/people Gated on can_manage_users. See below
 /dashboard/admin/log    Gated on can_moderate. Audit log, newest first
@@ -1485,6 +1516,51 @@ The open redirect fix is the one that is not a database change. `safePath()` mov
 > anywhere, and control characters too, since a tab or newline inside an authority is ignored during
 > URL parsing. It rejects rather than repairs: a validator that fixes its input invites you to find
 > the input it fixes into something else.
+
+### Articles, added 23 September
+
+Client request. FLARE was a video library and nothing else; `20260923000000` adds a second kind of
+thing a contributor can publish. Built: the `articles` table, `public_articles`, `public_library`,
+`soft_delete_article` / `restore_article`, `/dashboard/write`, `/a/[id]`, `ArticleCard`, and a Kind
+filter on `/library`.
+
+**It mirrors `videos` rather than inventing a parallel world**, and that is the point rather than
+laziness: difficulty and topic are the site's organising idea, and an article that could not be
+filtered to "level 2, credit" would not be findable in the one way this site expects anything to be
+findable.
+
+Three decisions worth arguing with later:
+
+> **The body is plain text.** Not markdown, not HTML. §7 already records that `/privacy` and
+> `/terms` are written as markup rather than pulled through a markdown dependency, so adding one
+> here would reverse that on purpose. The stronger reason is §9: this is arbitrary text submitted by
+> minors, and rendering user-supplied HTML is an XSS surface. A hand-rolled markdown parser that
+> emits HTML is the same surface with extra steps. `/a/[id]` splits on blank lines and lets React
+> escape each paragraph, exactly as a comment body is handled. Verified: an article whose body
+> contains `<script>` and an `onerror` image renders both as visible text, executes nothing, and
+> injects no elements.
+
+> **Articles have no comments.** `comments.video_id` is `not null references videos`, so comments on
+> articles means a polymorphic column, which touches the phase 5 insert policy, `public_comments`,
+> `read_report_queue`, and the evidence copy in `soft_delete_comment` that §9.6 turns into a
+> retention claim about a minor's words. That is its own piece of work, not a rider on a new content
+> type.
+
+> **No media release checkbox, unlike videos.** §9.5 exists because a video contains faces and
+> voices that need a signed release. Prose does not. Asking anyway would train contributors to tick
+> a release box that means nothing, which makes the real one on the upload form mean less.
+
+**`/library` reads `public_library`, a union view, and that is load-bearing.** Two queries merged in
+the page would make "page 2 of the library" meaningless, and merging full result sets in JS to slice
+them is the thing §7 forbids in the same breath as client-side filtering. The view also computes
+`preview` and `reading_minutes` in SQL and omits the body, so twelve cards do not ship up to a
+megabyte of prose.
+
+Verified against the live project from a real contributor session: publish through the form, the
+wordlist refusing a dirty title and a dirty body at the **policy** (not just the action), an edit
+from clean to dirty refused, the 200-character floor, drafts invisible to anon through the base
+table and both views, the union carrying videos and articles with the right `kind`, owner soft
+delete with its audit row, and restore refused for a non-moderator.
 
 ### Media assets
 
