@@ -30,10 +30,16 @@ const LEVELS = DIFFICULTY_LEVELS.map((l) => String(l.level));
 const BODY_MIN = 200;
 const BODY_MAX = 40000;
 
-export async function createArticle(
-  _prev: ArticleState,
-  formData: FormData,
-): Promise<ArticleState> {
+/**
+ * Read and check the form, shared by create and edit.
+ *
+ * Both paths want the identical rules, and the one thing worse than writing
+ * them twice is writing them twice and letting one drift: a wordlist that
+ * refuses a title on publish but accepts it on edit is not a wordlist. The
+ * database enforces all of this again either way, in the insert and update
+ * policies from 20260923000000.
+ */
+function readAndCheck(formData: FormData): ArticleState {
   const values = {
     title: String(formData.get("title") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
@@ -84,6 +90,34 @@ export async function createArticle(
     }
   }
 
+  return { errors, values };
+}
+
+/** The capability and suspension checks both write paths need. */
+async function whyNot(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<string | null> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("can_post, suspended_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!profile) return "We could not find your profile.";
+  if (profile.suspended_at) {
+    return "Your account is suspended, so you cannot publish.";
+  }
+  if (!profile.can_post) return "Publishing is not enabled for your account.";
+  return null;
+}
+
+export async function createArticle(
+  _prev: ArticleState,
+  formData: FormData,
+): Promise<ArticleState> {
+  const { errors, values } = readAndCheck(formData);
+
   if (Object.keys(errors).length > 0) return { errors, values };
 
   const supabase = await createClient();
@@ -95,27 +129,8 @@ export async function createArticle(
     return { errors: { form: "You need to be signed in to publish." }, values };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("can_post, suspended_at")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!profile) {
-    return { errors: { form: "We could not find your profile." }, values };
-  }
-  if (profile.suspended_at) {
-    return {
-      errors: { form: "Your account is suspended, so you cannot publish." },
-      values,
-    };
-  }
-  if (!profile.can_post) {
-    return {
-      errors: { form: "Publishing is not enabled for your account." },
-      values,
-    };
-  }
+  const blocked = await whyNot(supabase, user.id);
+  if (blocked) return { errors: { form: blocked }, values };
 
   const { data: created, error } = await supabase
     .from("articles")
@@ -147,6 +162,73 @@ export async function createArticle(
   // Straight to the piece itself. Unlike a video, there is nothing to tag
   // afterwards, and the first thing a writer wants is to read it as published.
   redirect(`/a/${created.id}`);
+}
+
+export async function updateArticle(
+  _prev: ArticleState,
+  formData: FormData,
+): Promise<ArticleState> {
+  const id = String(formData.get("article_id") ?? "");
+  const { errors, values } = readAndCheck(formData);
+
+  if (!id) {
+    return { errors: { form: "We could not tell which article that was." }, values };
+  }
+  if (Object.keys(errors).length > 0) return { errors, values };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { errors: { form: "You need to be signed in to edit." }, values };
+  }
+
+  const blocked = await whyNot(supabase, user.id);
+  if (blocked) return { errors: { form: blocked }, values };
+
+  /*
+   * edited_at is not sent. 20260925000000 took it out of the update grant and
+   * put a trigger on the table, so the stamp is the database's rather than
+   * something the client asserts about itself.
+   */
+  const { data: updated, error } = await supabase
+    .from("articles")
+    .update({
+      title: values.title,
+      description: values.description || null,
+      body: values.body,
+      difficulty: Number(values.difficulty),
+      topic: values.topic,
+    })
+    .eq("id", id)
+    .select("id");
+
+  if (error) {
+    return {
+      errors: { form: `We could not save that: ${error.message}` },
+      values,
+    };
+  }
+
+  /*
+   * A zero-row update is what the policy produces when the article is not
+   * yours, and PostgREST reports that as success. Read the count back rather
+   * than claiming it saved.
+   */
+  if (!updated || updated.length === 0) {
+    return {
+      errors: { form: "That article is not yours to edit." },
+      values,
+    };
+  }
+
+  revalidatePath("/library");
+  revalidatePath("/dashboard");
+  revalidatePath(`/a/${id}`);
+
+  redirect(`/a/${id}`);
 }
 
 export async function deleteArticle(formData: FormData): Promise<void> {

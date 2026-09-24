@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { deleteArticle } from "./write/actions";
 
@@ -20,13 +21,21 @@ export function ArticleRowControls({ articleId }: { articleId: string }) {
 
   if (!confirming) {
     return (
-      <button
-        type="button"
-        onClick={() => setConfirming(true)}
-        className="label text-ink/40 transition-colors hover:text-hot"
-      >
-        Remove
-      </button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Link
+          href={`/dashboard/write/${articleId}`}
+          className="label text-ink/40 transition-colors hover:text-ink"
+        >
+          Edit
+        </Link>
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="label text-ink/40 transition-colors hover:text-hot"
+        >
+          Remove
+        </button>
+      </div>
     );
   }
 

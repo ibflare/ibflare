@@ -1,16 +1,24 @@
 "use client";
 
 import { useActionState } from "react";
-import { createArticle, type ArticleState } from "./actions";
+import { createArticle, updateArticle, type ArticleState } from "./actions";
 import { DIFFICULTY_LEVELS, TOPICS, TOPIC_LABELS } from "@/lib/taxonomy";
 
-const EMPTY: ArticleState = {
-  errors: {},
-  values: { title: "", description: "", body: "", difficulty: "", topic: "" },
+const BLANK: ArticleState["values"] = {
+  title: "",
+  description: "",
+  body: "",
+  difficulty: "",
+  topic: "",
 };
 
 /**
- * Writing an article.
+ * Writing an article, and editing one. One form for both.
+ *
+ * Two forms would be two copies of the same nine fields and the same rules,
+ * and the failure mode is not the duplication but the drift: a validation that
+ * tightens on publish and not on edit is a rule that is enforced when the
+ * writer is careful and skipped when they come back to fix a typo.
  *
  * Every field is uncontrolled with a defaultValue taken from the action's
  * echoed values, and that is load-bearing rather than incidental: React resets
@@ -19,12 +27,24 @@ const EMPTY: ArticleState = {
  * `values` on every error path for exactly this reason. Same lesson as the
  * comment box, at a much higher cost if it is got wrong.
  */
-export function ArticleForm() {
-  const [state, formAction, pending] = useActionState(createArticle, EMPTY);
+export function ArticleForm({
+  articleId,
+  initial,
+}: {
+  /** Present when editing. Absent means this is a new piece. */
+  articleId?: string;
+  initial?: ArticleState["values"];
+}) {
+  const editing = Boolean(articleId);
+  const [state, formAction, pending] = useActionState(
+    editing ? updateArticle : createArticle,
+    { errors: {}, values: initial ?? BLANK },
+  );
   const v = state.values;
 
   return (
     <form action={formAction} className="mt-10 space-y-8">
+      {articleId && <input type="hidden" name="article_id" value={articleId} />}
       {state.errors.form && (
         <p
           role="alert"
@@ -135,7 +155,13 @@ export function ArticleForm() {
         disabled={pending}
         className="label rounded-full bg-ink px-7 py-4 text-mist transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {pending ? "Publishing" : "Publish"}
+        {pending
+          ? editing
+            ? "Saving"
+            : "Publishing"
+          : editing
+            ? "Save changes"
+            : "Publish"}
       </button>
     </form>
   );

@@ -1561,6 +1561,27 @@ Three decisions worth arguing with later:
 > voices that need a signed release. Prose does not. Asking anyway would train contributors to tick
 > a release box that means nothing, which makes the real one on the upload form mean less.
 
+> **`20260923000000` granted columns on `articles` without revoking first, and column grants mean
+> nothing until you do.** Supabase hands `anon` and `authenticated` ALL on every new table in the
+> public schema through default privileges, and a table-level grant covers every column. So the
+> careful `grant insert (...)` / `grant update (...)` lists sat next to a privilege that ignored
+> them, and the migration's own comment claiming `deleted_at`, `deleted_by` and `view_count` were
+> unwritable was false.
+>
+> Measured before it was fixed: an ordinary contributor editing their own article could PATCH
+> `view_count` to 99999, backdate `edited_at` to 2020, and rewrite `created_at`. `deleted_at` was
+> refused only because `articles_delete_complete` rejects a half-set pair; sent with `deleted_by` it
+> would have soft-deleted the row without the `audit_log` entry `soft_delete_article` exists to
+> guarantee. The same PATCHes against `videos` return `42501`.
+>
+> `20260904000000` opens with `revoke all on public.videos from anon, authenticated;` and
+> `20260829000000` does the same for `profiles`. That line is the reason their column grants work.
+> Fixed in `20260925010000`.
+>
+> **The rule for any new table: revoke before you grant.** A rule written in a comment is not a
+> rule, which §6 keeps relearning. This one was written in a `GRANT`, which looks far more like
+> enforcement than a comment does, and still was not.
+
 **`/library` reads `public_library`, a union view, and that is load-bearing.** Two queries merged in
 the page would make "page 2 of the library" meaningless, and merging full result sets in JS to slice
 them is the thing §7 forbids in the same breath as client-side filtering. The view also computes
