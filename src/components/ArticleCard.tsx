@@ -10,7 +10,7 @@ export type ArticleRow = {
   topic: string;
   owner_display_name: string;
   owner_avatar_url: string | null;
-  /** From public_library: the standfirst, or the opening of the piece. */
+  /** From public_library: the summary, or the opening of the piece. */
   preview: string | null;
   /** From public_library, computed in SQL so the body never ships here. */
   reading_minutes: number | null;
@@ -27,7 +27,7 @@ export function readingMinutes(body: string): number {
  *
  * Deliberately the same shell as VideoCard: same border, radius, h-full and
  * byline treatment, so a mixed grid reads as one library rather than two
- * things bolted together. What stands in for the thumbnail is the standfirst,
+ * things bolted together. What stands in for the thumbnail is the summary,
  * because an article with no image still has to give a reader something to
  * judge it by, and "Read" plus a minute count is what tells them at a glance
  * which kind of thing they are about to open.

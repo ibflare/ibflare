@@ -10,8 +10,15 @@ export const metadata = {
     "Every FLARE video and article, sorted by difficulty. Search, or filter by level and topic.",
 };
 
-/** The two things the library holds. `kind` comes from public_library. */
-const KINDS = ["video", "article"] as const;
+/**
+ * The two things the library holds.
+ *
+ * The URL says `type` because that is what the filter is labelled, and the
+ * library's search form is deliberately a plain GET whose URL is meant to be
+ * shareable. The view's column is still `kind`: that is a schema name, not
+ * something a reader sees.
+ */
+const TYPES = ["video", "article"] as const;
 
 const PER_PAGE = 12;
 
@@ -24,7 +31,7 @@ function readParams(raw: Record<string, string | string[] | undefined>) {
 
   const difficultyRaw = one("difficulty");
   const topicRaw = one("topic");
-  const kindRaw = one("kind");
+  const typeRaw = one("type");
   const pageRaw = Number(one("page"));
 
   return {
@@ -33,17 +40,17 @@ function readParams(raw: Record<string, string | string[] | undefined>) {
       ? difficultyRaw
       : "",
     topic: (TOPICS as readonly string[]).includes(topicRaw) ? topicRaw : "",
-    kind: (KINDS as readonly string[]).includes(kindRaw) ? kindRaw : "",
+    type: (TYPES as readonly string[]).includes(typeRaw) ? typeRaw : "",
     page: Number.isFinite(pageRaw) && pageRaw > 1 ? Math.floor(pageRaw) : 1,
   };
 }
 
-type Current = { q: string; difficulty: string; topic: string; kind: string };
+type Current = { q: string; difficulty: string; topic: string; type: string };
 
 /** A link that keeps the other filters, and always resets to page one. */
 function href(
   current: Current,
-  change: Partial<{ difficulty: string; topic: string; kind: string; page: number }>,
+  change: Partial<{ difficulty: string; topic: string; type: string; page: number }>,
 ) {
   const params = new URLSearchParams();
   const merged = { ...current, ...change };
@@ -51,7 +58,7 @@ function href(
   if (current.q) params.set("q", current.q);
   if (merged.difficulty) params.set("difficulty", merged.difficulty);
   if (merged.topic) params.set("topic", merged.topic);
-  if (merged.kind) params.set("kind", merged.kind);
+  if (merged.type) params.set("type", merged.type);
   if (change.page && change.page > 1) params.set("page", String(change.page));
 
   const query = params.toString();
@@ -59,7 +66,7 @@ function href(
 }
 
 export default async function LibraryPage(props: PageProps<"/library">) {
-  const { q, difficulty, topic, kind, page } = readParams(
+  const { q, difficulty, topic, type, page } = readParams(
     await props.searchParams,
   );
 
@@ -92,7 +99,8 @@ export default async function LibraryPage(props: PageProps<"/library">) {
   if (q) query = query.textSearch("search_tsv", q, { type: "websearch" });
   if (difficulty) query = query.eq("difficulty", Number(difficulty));
   if (topic) query = query.eq("topic", topic);
-  if (kind) query = query.eq("kind", kind);
+  // The column is `kind`; the URL parameter is `type`.
+  if (type) query = query.eq("kind", type);
 
   const from = (page - 1) * PER_PAGE;
 
@@ -104,8 +112,8 @@ export default async function LibraryPage(props: PageProps<"/library">) {
   const items = (data ?? []) as LibraryRow[];
   const total = count ?? 0;
   const lastPage = Math.max(1, Math.ceil(total / PER_PAGE));
-  const filtering = Boolean(q || difficulty || topic || kind);
-  const current = { q, difficulty, topic, kind };
+  const filtering = Boolean(q || difficulty || topic || type);
+  const current = { q, difficulty, topic, type };
 
   return (
     <section>
@@ -119,6 +127,9 @@ export default async function LibraryPage(props: PageProps<"/library">) {
         <form action="/library" method="get" className="mt-8 flex max-w-lg gap-3">
           {difficulty && <input type="hidden" name="difficulty" value={difficulty} />}
           {topic && <input type="hidden" name="topic" value={topic} />}
+          {/* Without this, searching from inside a Type filter silently drops
+              it: a GET form submits only the fields it contains. */}
+          {type && <input type="hidden" name="type" value={type} />}
           <input
             type="search"
             name="q"
@@ -167,16 +178,16 @@ export default async function LibraryPage(props: PageProps<"/library">) {
             ))}
           </Filter>
 
-          <Filter label="Kind">
-            <Pill href={href(current, { kind: "" })} active={!kind}>
+          <Filter label="Type">
+            <Pill href={href(current, { type: "" })} active={!type}>
               All
             </Pill>
-            <Pill href={href(current, { kind: "video" })} active={kind === "video"}>
+            <Pill href={href(current, { type: "video" })} active={type === "video"}>
               Videos
             </Pill>
             <Pill
-              href={href(current, { kind: "article" })}
-              active={kind === "article"}
+              href={href(current, { type: "article" })}
+              active={type === "article"}
             >
               Articles
             </Pill>
@@ -210,11 +221,11 @@ export default async function LibraryPage(props: PageProps<"/library">) {
           <>
             <p className="label mt-12 text-ink/45">
               {total}{" "}
-              {kind === "video"
+              {type === "video"
                 ? total === 1
                   ? "video"
                   : "videos"
-                : kind === "article"
+                : type === "article"
                   ? total === 1
                     ? "article"
                     : "articles"

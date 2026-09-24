@@ -83,6 +83,11 @@ export const TOPICS = [
   "macro",
   "micro",
   "corporate",
+  // Deliberately last, and deliberately present: without it a contributor with
+  // something that fits none of the eight has to file it under the nearest
+  // wrong one, which is worse for the reader than an honest "Other". Added
+  // 24 September, with 20260924000000 widening both topic constraints.
+  "other",
 ] as const;
 
 export type Topic = (typeof TOPICS)[number];
@@ -102,6 +107,7 @@ export const TOPIC_LABELS: Record<Topic, string> = {
   macro: "Macroeconomics",
   micro: "Microeconomics",
   corporate: "Corporate finance",
+  other: "Other",
 };
 
 /**

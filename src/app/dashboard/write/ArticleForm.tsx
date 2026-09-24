@@ -45,7 +45,7 @@ export function ArticleForm() {
 
       <Field
         name="description"
-        label="Standfirst (optional)"
+        label="Summary (optional)"
         hint="One or two sentences. This is what shows on the library card."
         defaultValue={v.description}
         error={state.errors.description}

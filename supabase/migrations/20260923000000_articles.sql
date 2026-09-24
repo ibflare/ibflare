@@ -43,7 +43,7 @@
 create table if not exists public.articles (
   id            uuid primary key default gen_random_uuid(),
   title         text not null,
-  -- The standfirst on a card, same role description plays for a video.
+  -- The summary shown on a card, the same role description plays for a video.
   description   text,
   body          text not null,
   difficulty    smallint not null,
@@ -292,7 +292,7 @@ with (security_invoker = false, security_barrier = true) as
     null::text       as thumbnail_url,
     null::integer    as duration_s,
     '[]'::jsonb      as collaborators,
-    -- The standfirst if there is one, otherwise the opening of the piece. 300
+    -- The summary if there is one, otherwise the opening of the piece. 300
     -- characters is comfortably more than the card shows at three lines.
     left(coalesce(nullif(btrim(a.description), ''), btrim(a.body)), 300) as preview,
     -- Roughly 200 words a minute, floored at one. Counting words in SQL avoids

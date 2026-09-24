@@ -245,7 +245,18 @@ in step.
 > itself went on 16 September, so "Ages 13–14" now describes nothing but the pitch. Which is what it
 > always meant for rows 2 to 5, so the label is finally consistent rather than newly wrong.
 
-Topics (enum): `taxes`, `banking`, `credit`, `investing`, `career`, `macro`, `micro`, `corporate`.
+Topics (enum): `taxes`, `banking`, `credit`, `investing`, `career`, `macro`, `micro`, `corporate`,
+`other`.
+
+> **`other` was added 24 September**, on the client's instruction. Without it a contributor whose
+> piece fits none of the eight has to file it under the nearest wrong one, and a reader filtering by
+> "banking" is worse served by something that is not about banking than by an honest "Other".
+>
+> **The list lives in three places and they have to move together:** `TOPICS` in
+> `src/lib/taxonomy.ts` is what the form offers, and `videos_topic_valid` and `articles_topic_valid`
+> are what the database accepts. Widening only the first puts an option in the select box that every
+> insert then refuses with `23514`, at the moment of publishing. `20260924000000` does the other two.
+> `TOPIC_LABELS` is the fourth: a key missing there renders as a blank filter pill.
 
 ```sql
 profiles (
@@ -299,7 +310,7 @@ videos (
 articles (
   id            uuid primary key default gen_random_uuid(),
   title         text not null,
-  description   text,               -- the standfirst on a card
+  description   text,               -- the summary shown on a card
   body          text not null,      -- PLAIN TEXT. Never markdown, never HTML
   difficulty    smallint not null check (difficulty between 1 and 5),
   topic         text not null,
@@ -544,7 +555,7 @@ RLS on every table. Write `has_capability(cap text)` as a `SECURITY DEFINER` fun
   `auth.uid() = owner_id AND can_post`. Update/delete for the owner or `can_moderate`.
 - **articles** — `status='published' AND deleted_at IS NULL` readable by anon. Insert and update both
   require `auth.uid() = owner_id AND can_post AND NOT suspended`, **and the body, title and
-  standfirst must all pass `comment_is_clean()`**, because an article is user-submitted text in
+  summary must all pass `comment_is_clean()`**, because an article is user-submitted text in
   exactly the sense a comment is. Moderators may update any. No DELETE policy: `soft_delete_article`
   and `restore_article` are the path, both audited.
 - **video_collaborators** — readable when the parent video is public and the row is `accepted`, or
