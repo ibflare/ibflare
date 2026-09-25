@@ -1541,27 +1541,46 @@ thing a contributor can publish. Built: the `articles` table, `public_articles`,
 `soft_delete_article` / `restore_article`, `/dashboard/write`, `/dashboard/write/[id]`, `/a/[id]`,
 `ArticleCard`, and a Type filter on `/library`.
 
-> **`/library`'s three filters are `select` elements, in `LibraryFilters.tsx`.** They were three
-> rows of pills, which is twenty-one controls permanently on screen, and once `other` joined the
-> topics two of those rows wrapped and the filters took more vertical space than the results.
+> **`/library`'s three filters are dropdowns, in `LibraryFilters.tsx`.** They were three rows of
+> pills, which is twenty-one controls permanently on screen, and once `other` joined the topics two
+> of those rows wrapped and the filters took more vertical space than the results.
 >
-> They are native selects styled with `appearance-none`, not a custom listbox, so keyboard handling,
-> screen reader semantics and touch behaviour come for free. The open list is drawn by the operating
-> system: its colours are settable on the `option` elements and nothing else is, which is why each
-> `option` carries `bg-paper text-ink` rather than inheriting the closed control's filled-ink
-> treatment and opening a black list on a pale green page.
+> **They were native `select` elements first, and that is the version to understand before changing
+> this.** A native select's open list is drawn by the operating system. Its colours can be set on
+> the `option` elements and nothing else can, so it arrives as a hard-cornered white box under a
+> rounded pill, and no amount of CSS on the select changes that. Rounding it means owning it, so
+> they are now a listbox: a `role="combobox"` button and a `role="listbox"` panel, following the
+> ARIA select-only combobox pattern, where focus stays on the button and `aria-activedescendant` is
+> what moves. That keeps one tab stop per filter, exactly as a select had.
 >
-> Two things about it are load-bearing rather than incidental:
+> **What that cost, stated because the next person will weigh it again:**
+>
+> - **The filters no longer work with JavaScript off.** Search still does. The half-measure, a
+>   visually hidden native select kept alive beside the custom one, means two controls announcing
+>   themselves for one filter, which is worse for a screen reader than the thing it fixes.
+> - **The keyboard behaviour is ours to get right now**, so it is written out rather than assumed:
+>   arrows, Home, End, Enter, Space, Escape, Tab, outside click, and type-ahead. Type-ahead is the
+>   one that looks optional and is not. A ten-item topic list is ten arrow presses without it, and
+>   silently dropping a behaviour people already had is the usual way a custom control ends up
+>   worse than the native one it replaced.
+>
+> Three things about it are load-bearing rather than incidental:
 >
 > - **Blank controls are disabled during the submit event.** A GET form serialises every named
 >   control it contains, so one filter would otherwise produce `?q=&difficulty=&topic=&type=article`
 >   in a URL section 7 wants people to paste to each other. Both submit paths reach that handler:
->   the selects through `requestSubmit()`, which fires the submit event where `form.submit()` would
->   skip it, and the Search button natively.
-> - **Each select is keyed on its value**, so a soft navigation remounts it. The control is
->   uncontrolled, and React does not push a changed `defaultValue` into an input that is already
->   mounted, so without the key the DOM value and the URL can drift and the next submit sends the
->   stale one. Same reasoning as the comment textarea in phase 5.
+>   the dropdowns through `requestSubmit()`, which fires the submit event where `form.submit()`
+>   would skip it, and the Search button natively.
+> - **The chosen value is written to the hidden input imperatively, then submitted.** Waiting for
+>   the render would be a race with the navigation.
+> - **Each dropdown is keyed on its value**, so a soft navigation remounts it. Its own idea of what
+>   is chosen is React state, and "Clear filters" and the pagination links are `Link`s rather than
+>   form submits, so without the key the buttons keep their old labels on a page that no longer has
+>   those filters. Same reasoning as the comment textarea in phase 5.
+>
+> **Nothing else in the app casts a shadow**: the design language is borders. A floating layer is
+> the one case a border cannot carry on its own, so the panel's shadow is ink at low opacity rather
+> than a generic black, and stays inside the palette.
 
 **It mirrors `videos` rather than inventing a parallel world**, and that is the point rather than
 laziness: difficulty and topic are the site's organising idea, and an article that could not be
