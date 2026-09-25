@@ -252,7 +252,7 @@ Topics (enum): `taxes`, `banking`, `credit`, `investing`, `career`, `macro`, `mi
 > piece fits none of the eight has to file it under the nearest wrong one, and a reader filtering by
 > "banking" is worse served by something that is not about banking than by an honest "Other".
 >
-> **The list lives in three places and they have to move together:** `TOPICS` in
+> **The list lives in four places and they have to move together:** `TOPICS` in
 > `src/lib/taxonomy.ts` is what the form offers, and `videos_topic_valid` and `articles_topic_valid`
 > are what the database accepts. Widening only the first puts an option in the select box that every
 > insert then refuses with `23514`, at the moment of publishing. `20260924000000` does the other two.
@@ -380,7 +380,8 @@ site_settings (
 )
 ```
 
-Indexes: GIN on `videos.search_tsv`; btree on `videos(difficulty)`, `videos(topic)`,
+Indexes: GIN on `videos.search_tsv` and `articles.search_tsv`; btree on `videos(difficulty)`,
+`videos(topic)`,
 `videos(owner_id)`, `videos(status, published_at desc)`, `comments(video_id, created_at)`.
 
 **Deletes are soft.** Set `deleted_at` and `deleted_by`; never `DELETE FROM videos`. Deleted rows
@@ -681,10 +682,15 @@ Hiding a button is not enforcement. Likewise, the comments insert policy checks
 /our-mission            Why FLARE exists. In the nav for signed-out visitors only
 /contribute             How to upload to YouTube and post here. In the nav for signed-in accounts only
 /login                  Sign in or create an account: Google, or email and password
-/onboarding             First run: username, display name, grade, birth date. School and city optional
+/onboarding             First run: username, display name, grade. School and city optional
 /dashboard              Own videos, drafts, pending collaboration invites
 /dashboard/upload       Gated on can_post
 /dashboard/write        Gated on can_post. Write an article
+/dashboard/write/[id]   Gated on can_post. Edit your own article. 404 for anyone else
+/dashboard/admin/reports   Gated on can_moderate. The officer queue from §4
+/auth/callback          Where Google sends the user back. Exchanges the code for a session
+/auth/confirm           Where a confirmation email lands. See the known bug in §1
+/api/youtube            POST only, gated on can_post. The §5 resolver
 /dashboard/admin        Gated on can_moderate. All videos incl. deleted, restore, reported comments
 /dashboard/admin/people Gated on can_manage_users. See below
 /dashboard/admin/log    Gated on can_moderate. Audit log, newest first
@@ -1532,8 +1538,8 @@ The open redirect fix is the one that is not a database change. `safePath()` mov
 
 Client request. FLARE was a video library and nothing else; `20260923000000` adds a second kind of
 thing a contributor can publish. Built: the `articles` table, `public_articles`, `public_library`,
-`soft_delete_article` / `restore_article`, `/dashboard/write`, `/a/[id]`, `ArticleCard`, and a Kind
-filter on `/library`.
+`soft_delete_article` / `restore_article`, `/dashboard/write`, `/dashboard/write/[id]`, `/a/[id]`,
+`ArticleCard`, and a Type filter on `/library`.
 
 **It mirrors `videos` rather than inventing a parallel world**, and that is the point rather than
 laziness: difficulty and topic are the site's organising idea, and an article that could not be
@@ -1593,6 +1599,57 @@ wordlist refusing a dirty title and a dirty body at the **policy** (not just the
 from clean to dirty refused, the 200-character floor, drafts invisible to anon through the base
 table and both views, the union carrying videos and articles with the right `kind`, owner soft
 delete with its audit row, and restore refused for a non-moderator.
+
+### The 25 September audit
+
+A second full pass, structured like the 14 September one but aimed at the surfaces that did not
+exist then: `articles`, the two new views, the edit path, and the grant model after the 24 September
+fix. 83 database probes from real authenticated and anonymous sessions, the whole route table signed
+out and signed in, and the spec checked against the built routes mechanically.
+
+**One critical finding, fixed in `20260925020000`: `public_profiles` was writable by anyone,
+including a signed-out visitor.**
+
+It is a single-table view, which makes it auto-updatable in Postgres, and it is
+`security_invoker = false`, which §6 chose so anon could read a byline out of a table it cannot
+touch. Writes run as the view's owner too, so they bypass RLS on `profiles` entirely. The view was
+never revoked, so Supabase's default `ALL` sat on it untouched. An anonymous `PATCH
+/rest/v1/public_profiles?id=eq.<anyone>` rewrote `display_name`, `title`, `bio` and the public
+`role` tag on any account on the site. Demonstrated against the live project and restored
+immediately.
+
+Two base-table protections happened to limit it and **neither was by design**:
+`enforce_username_immutable` still fired, so renames were refused, and `profiles_avatar_url_allowed`
+still applied, so `avatar_url` could not be pointed offsite. Nothing stopped the other four columns.
+
+> **This is the same mistake for the third time, and the third costume it has worn.** §6's note
+> about this view is long and careful and every word of it is about `SELECT`, which is exactly how
+> the write side stayed invisible for a month: the documentation described the surface it was
+> thinking about. `20260925010000` had already written the rule for tables a day earlier. **A view
+> is a new object too.** Revoke before you grant, on tables and on views, and when a view is
+> `security_invoker = false` treat any write privilege on it as a privilege on the base table with
+> RLS switched off.
+>
+> The other four views join or union, which makes them non-auto-updatable: a write returns `55000`.
+> That is Postgres declining rather than this project deciding, so they are revoked explicitly now
+> as well. Simplifying any of them to a single-table projection would silently make it writable.
+
+**What held.** Every closed column is closed on `comments` (including the whole soft-delete trail),
+`videos`, `articles` and `profiles`; `site_settings`, `video_collaborators`, `reports`, `audit_log`
+and `moderation_terms` refuse every client write with `42501`; drafts, `hidden` and soft-deleted
+rows are invisible to anon through the base tables and all three public views, for both content
+types; the private columns are absent from `public_profiles` by construction (`42703`) and a member
+reading another person's `profiles` row, `audit_log` or `reports` gets `[]`; nine privileged RPCs
+refuse a plain member; all eight reserved usernames are refused; the rate limit, the kill switch,
+suspension and the wordlist all refuse at the API rather than only in the UI; and the filter still
+takes `sh1t` and `fuuuuck` while passing Scunthorpe, Dickinson and assassin.
+
+**The spec had drifted in five places**, all corrected here: `/onboarding` still listed a birth
+date, five built routes were missing from §7 (`/dashboard/write/[id]`, `/dashboard/admin/reports`,
+both `/auth` routes and `/api/youtube`), the articles section still called the library filter
+"Kind", the topic list said it lives in three places when `TOPIC_LABELS` makes four, and the index
+line never gained `articles.search_tsv`. §7's route block is now checked against the filesystem
+rather than by eye.
 
 ### Media assets
 
