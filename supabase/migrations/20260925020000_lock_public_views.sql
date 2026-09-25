@@ -39,13 +39,12 @@
 -- decided. If any of them is ever simplified to a single-table projection it
 -- would silently become writable, so they are revoked explicitly as well.
 --
--- THE GENERAL RULE, WHICH IS NOW THE THIRD TIME THIS SHAPE HAS APPEARED
+-- THE GENERAL RULE
 --
 -- 20260925010000 said it for tables: revoke before you grant, because Supabase
--- grants ALL on new objects by default. A VIEW is a new object too. §6 has a
--- long note about `public_profiles` and its grant, and every word of it is
--- about SELECT, which is exactly how the write side stayed invisible for a
--- month: the documentation described the surface it was thinking about.
+-- grants ALL on new objects by default. A VIEW is a new object too, and a view
+-- that is security_invoker = false carries any write privilege straight past
+-- RLS on the base table.
 
 revoke all on public.public_profiles from anon, authenticated;
 grant select on public.public_profiles to anon, authenticated;

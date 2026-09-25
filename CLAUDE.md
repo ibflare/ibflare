@@ -1622,13 +1622,9 @@ Two base-table protections happened to limit it and **neither was by design**:
 `enforce_username_immutable` still fired, so renames were refused, and `profiles_avatar_url_allowed`
 still applied, so `avatar_url` could not be pointed offsite. Nothing stopped the other four columns.
 
-> **This is the same mistake for the third time, and the third costume it has worn.** §6's note
-> about this view is long and careful and every word of it is about `SELECT`, which is exactly how
-> the write side stayed invisible for a month: the documentation described the surface it was
-> thinking about. `20260925010000` had already written the rule for tables a day earlier. **A view
-> is a new object too.** Revoke before you grant, on tables and on views, and when a view is
-> `security_invoker = false` treat any write privilege on it as a privilege on the base table with
-> RLS switched off.
+> **`20260925010000` wrote the rule for tables a day earlier. A view is a new object too.**
+> Revoke before you grant, on tables and on views, and when a view is `security_invoker = false`
+> treat any write privilege on it as a privilege on the base table with RLS switched off.
 >
 > The other four views join or union, which makes them non-auto-updatable: a write returns `55000`.
 > That is Postgres declining rather than this project deciding, so they are revoked explicitly now
