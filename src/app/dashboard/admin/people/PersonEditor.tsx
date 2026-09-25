@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { savePermissions, suspendUser, unsuspendUser } from "../actions";
 import { EMPTY_ACTION } from "@/lib/action-state";
+import { Select } from "@/components/Select";
 
 export type Person = {
   id: string;
@@ -130,18 +131,14 @@ export function PersonEditor({ person }: { person: Person }) {
                 >
                   Role
                 </label>
-                <select
+                <Select
                   id={`role-${person.id}`}
                   name="role"
+                  label="Role"
                   defaultValue={person.role}
-                  className="mt-3 w-full rounded-lg border border-ink/25 bg-paper px-4 py-3"
-                >
-                  {ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
+                  options={ROLES.map((r) => ({ value: r.value, label: r.label }))}
+                  className="mt-3"
+                />
                 <p className="mt-2 text-sm leading-relaxed text-ink/55">
                   Sets the tag on their profile. It does not grant anything on
                   its own; the checkboxes below do that.

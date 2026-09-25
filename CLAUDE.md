@@ -1543,44 +1543,21 @@ thing a contributor can publish. Built: the `articles` table, `public_articles`,
 
 > **`/library`'s three filters are dropdowns, in `LibraryFilters.tsx`.** They were three rows of
 > pills, which is twenty-one controls permanently on screen, and once `other` joined the topics two
-> of those rows wrapped and the filters took more vertical space than the results.
+> of those rows wrapped and the filters took more vertical space than the results. The control
+> itself is `src/components/Select.tsx`, which every dropdown on the site goes through: see the
+> dropdowns note below.
 >
-> **They were native `select` elements first, and that is the version to understand before changing
-> this.** A native select's open list is drawn by the operating system. Its colours can be set on
-> the `option` elements and nothing else can, so it arrives as a hard-cornered white box under a
-> rounded pill, and no amount of CSS on the select changes that. Rounding it means owning it, so
-> they are now a listbox: a `role="combobox"` button and a `role="listbox"` panel, following the
-> ARIA select-only combobox pattern, where focus stays on the button and `aria-activedescendant` is
-> what moves. That keeps one tab stop per filter, exactly as a select had.
->
-> **What that cost, stated because the next person will weigh it again:**
->
-> - **The filters no longer work with JavaScript off.** Search still does. The half-measure, a
->   visually hidden native select kept alive beside the custom one, means two controls announcing
->   themselves for one filter, which is worse for a screen reader than the thing it fixes.
-> - **The keyboard behaviour is ours to get right now**, so it is written out rather than assumed:
->   arrows, Home, End, Enter, Space, Escape, Tab, outside click, and type-ahead. Type-ahead is the
->   one that looks optional and is not. A ten-item topic list is ten arrow presses without it, and
->   silently dropping a behaviour people already had is the usual way a custom control ends up
->   worse than the native one it replaced.
->
-> Three things about it are load-bearing rather than incidental:
+> Two things here are specific to the library and load-bearing:
 >
 > - **Blank controls are disabled during the submit event.** A GET form serialises every named
 >   control it contains, so one filter would otherwise produce `?q=&difficulty=&topic=&type=article`
 >   in a URL section 7 wants people to paste to each other. Both submit paths reach that handler:
 >   the dropdowns through `requestSubmit()`, which fires the submit event where `form.submit()`
 >   would skip it, and the Search button natively.
-> - **The chosen value is written to the hidden input imperatively, then submitted.** Waiting for
->   the render would be a race with the navigation.
-> - **Each dropdown is keyed on its value**, so a soft navigation remounts it. Its own idea of what
->   is chosen is React state, and "Clear filters" and the pagination links are `Link`s rather than
->   form submits, so without the key the buttons keep their old labels on a page that no longer has
->   those filters. Same reasoning as the comment textarea in phase 5.
->
-> **Nothing else in the app casts a shadow**: the design language is borders. A floating layer is
-> the one case a border cannot carry on its own, so the panel's shadow is ink at low opacity rather
-> than a generic black, and stays inside the palette.
+> - **Each dropdown is keyed on its value**, so a soft navigation remounts it. Which option is
+>   chosen is React state, and "Clear filters" and the pagination links are `Link`s rather than form
+>   submits, so without the key the buttons keep their old labels on a page that no longer has those
+>   filters. Same reasoning as the comment textarea in phase 5.
 
 **It mirrors `videos` rather than inventing a parallel world**, and that is the point rather than
 laziness: difficulty and topic are the site's organising idea, and an article that could not be
@@ -1687,6 +1664,63 @@ both `/auth` routes and `/api/youtube`), the articles section still called the l
 "Kind", the topic list said it lives in three places when `TOPIC_LABELS` makes four, and the index
 line never gained `articles.search_tsv`. §7's route block is now checked against the filesystem
 rather than by eye.
+
+### Dropdowns
+
+**There are no `<select>` elements in this app, and that is enforceable by `grep`.** Every dropdown
+goes through `src/components/Select.tsx`: the library's three filters, `grade` on `/onboarding`,
+`topic` on `/dashboard/upload`, `difficulty` and `topic` on `/dashboard/write`, and `role` on
+`/dashboard/admin/people`.
+
+**They were native selects first, and that is the version to understand before changing this.** A
+native select's open list is drawn by the operating system. Its colours can be set on the `option`
+elements and nothing else can, so it arrives as a hard-cornered white box under a rounded control,
+and no amount of CSS on the select changes that. Rounding it means owning it. It is now a
+`role="combobox"` button and a `role="listbox"` panel, following the ARIA select-only combobox
+pattern, where focus stays on the button and `aria-activedescendant` is what moves, so there is one
+tab stop per dropdown exactly as a select had.
+
+**What that cost, stated because the next person will weigh it again:**
+
+- **A dropdown no longer works with JavaScript off.** The rest of each form still does, and every
+  field this replaced is validated on the server as well, so nothing is enforced only here. The
+  half-measure, a visually hidden native select kept alive beside the custom one, means two controls
+  announcing themselves for one field, which is worse for a screen reader than the thing it fixes.
+- **The keyboard behaviour is ours to get right now**, so it is written out rather than assumed:
+  arrows, Home, End, Enter, Space, Escape, Tab, outside click, and type-ahead. Type-ahead is the one
+  that looks optional and is not. A ten-item topic list is ten arrow presses without it, and quietly
+  dropping a behaviour people already had is the usual way a custom control ends up worse than the
+  native one it replaced.
+
+Two decisions inside it are worth knowing before editing:
+
+> **`required` on the hidden input would be a trap rather than a shortcut.** The browser refuses to
+> submit, tries to focus the offending control to show its message, cannot focus something hidden,
+> and gives up: the form silently does nothing and the console says the control is not focusable. So
+> the check runs on the form's submit event in the **capture** phase, which is before React's own
+> listener at the root and therefore before the server action fires. When two dropdowns on one form
+> are both empty, both flag and the first one takes the focus.
+>
+> **The message is passed in to match the server's wording for the same field**, so "Choose a
+> topic." is the same sentence whichever of the two paths produced it. The server check is the rule;
+> this one is only the fast path.
+
+> **The hidden input is controlled, and it has to be.** It held `defaultValue` and was written
+> imperatively at first, which worked everywhere it was tested, because the only caller then was the
+> library filter, and a filter navigates away in the same tick so nothing ever re-rendered to undo
+> the write. Inside a form that stays put, React's next render restores an uncontrolled input from
+> its props and the write is gone. The visible symptom was a button reading "12th grade" over an
+> empty value, and a form that refused to submit with nothing on screen to say why.
+>
+> Because the value now arrives a render later, `submitOnChange` fires from an effect keyed on the
+> selection rather than from the click handler. The effect runs after the commit, which is the only
+> point at which the button label and the submitted value are both right.
+
+**Styling.** Two variants: `pill` for the library filters, `field` for everything in a form, which
+matches the existing inputs (`rounded-lg`, `border-ink/25`) and turns `--hot` when it has an error.
+Nothing else in the app casts a shadow, the design language being borders, and a floating layer is
+the one case a border cannot carry on its own, so the panel's shadow is ink at low opacity rather
+than a generic black and stays inside the palette.
 
 ### Media assets
 

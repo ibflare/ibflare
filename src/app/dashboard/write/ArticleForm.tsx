@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { createArticle, updateArticle, type ArticleState } from "./actions";
 import { DIFFICULTY_LEVELS, TOPICS, TOPIC_LABELS } from "@/lib/taxonomy";
+import { Select } from "@/components/Select";
 
 const BLANK: ArticleState["values"] = {
   title: "",
@@ -103,50 +104,42 @@ export function ArticleForm({
           <label htmlFor="difficulty" className="label block text-ink/60">
             Level
           </label>
-          <select
+          <Select
             id="difficulty"
             name="difficulty"
+            label="Level"
             defaultValue={v.difficulty}
+            placeholder="Choose one"
             required
-            className="mt-3 w-full rounded-lg border border-ink/25 bg-paper px-4 py-3 text-ink"
-          >
-            <option value="">Choose one</option>
-            {DIFFICULTY_LEVELS.map((level) => (
-              <option key={level.level} value={level.level}>
-                {level.level}. {level.name} &middot; {level.audience}
-              </option>
-            ))}
-          </select>
-          {state.errors.difficulty && (
-            <p role="alert" className="mt-2 text-sm text-hot">
-              {state.errors.difficulty}
-            </p>
-          )}
+            requiredMessage="Choose a level."
+            error={state.errors.difficulty}
+            options={DIFFICULTY_LEVELS.map((level) => ({
+              value: String(level.level),
+              label: `${level.level}. ${level.name} · ${level.audience}`,
+            }))}
+            className="mt-3"
+          />
         </div>
 
         <div>
           <label htmlFor="topic" className="label block text-ink/60">
             Topic
           </label>
-          <select
+          <Select
             id="topic"
             name="topic"
+            label="Topic"
             defaultValue={v.topic}
+            placeholder="Choose one"
             required
-            className="mt-3 w-full rounded-lg border border-ink/25 bg-paper px-4 py-3 text-ink"
-          >
-            <option value="">Choose one</option>
-            {TOPICS.map((topic) => (
-              <option key={topic} value={topic}>
-                {TOPIC_LABELS[topic]}
-              </option>
-            ))}
-          </select>
-          {state.errors.topic && (
-            <p role="alert" className="mt-2 text-sm text-hot">
-              {state.errors.topic}
-            </p>
-          )}
+            requiredMessage="Choose a topic."
+            error={state.errors.topic}
+            options={TOPICS.map((topic) => ({
+              value: topic,
+              label: TOPIC_LABELS[topic],
+            }))}
+            className="mt-3"
+          />
         </div>
       </div>
 

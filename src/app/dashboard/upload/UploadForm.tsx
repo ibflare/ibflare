@@ -11,6 +11,7 @@ import {
   difficultyAccent,
 } from "@/lib/taxonomy";
 import { formatDuration } from "@/lib/youtube";
+import { Select } from "@/components/Select";
 
 const EMPTY: UploadState = {
   errors: {},
@@ -242,26 +243,21 @@ export function UploadForm() {
         <label htmlFor="topic" className="label block text-ink/60">
           Topic
         </label>
-        <select
+        <Select
           id="topic"
           name="topic"
-          required
+          label="Topic"
           defaultValue={state.values.topic}
-          aria-describedby={state.errors.topic ? "topic-error" : undefined}
-          className="mt-3 w-full rounded-lg border border-ink/25 bg-paper px-4 py-3 text-ink"
-        >
-          <option value="">Choose one</option>
-          {TOPICS.map((topic) => (
-            <option key={topic} value={topic}>
-              {TOPIC_LABELS[topic]}
-            </option>
-          ))}
-        </select>
-        {state.errors.topic && (
-          <p id="topic-error" role="alert" className="mt-2 text-sm text-hot">
-            {state.errors.topic}
-          </p>
-        )}
+          placeholder="Choose one"
+          required
+          requiredMessage="Choose a topic."
+          error={state.errors.topic}
+          options={TOPICS.map((topic) => ({
+            value: topic,
+            label: TOPIC_LABELS[topic],
+          }))}
+          className="mt-3"
+        />
       </div>
 
       <div>

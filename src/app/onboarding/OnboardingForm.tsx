@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { completeOnboarding, type OnboardingState } from "./actions";
 import { GRADES } from "@/lib/taxonomy";
+import { Select } from "@/components/Select";
 
 export function OnboardingForm({
   initial,
@@ -67,27 +68,18 @@ export function OnboardingForm({
             <label htmlFor="grade" className="label block text-ink/60">
               Grade
             </label>
-            <select
+            <Select
               id="grade"
               name="grade"
+              label="Grade"
               defaultValue={v.grade}
+              placeholder="Choose one"
               required
-              aria-describedby={state.errors.grade ? "grade-error" : undefined}
-              aria-invalid={state.errors.grade ? true : undefined}
-              className="mt-3 w-full rounded-lg border border-ink/25 bg-paper px-4 py-3 text-ink"
-            >
-              <option value="">Choose one</option>
-              {GRADES.map((g) => (
-                <option key={g.value} value={g.value}>
-                  {g.label}
-                </option>
-              ))}
-            </select>
-            {state.errors.grade && (
-              <p id="grade-error" role="alert" className="mt-2 text-sm text-hot">
-                {state.errors.grade}
-              </p>
-            )}
+              requiredMessage="Choose one of the options."
+              error={state.errors.grade}
+              options={GRADES.map((g) => ({ value: g.value, label: g.label }))}
+              className="mt-3"
+            />
           </div>
 
           {/*
