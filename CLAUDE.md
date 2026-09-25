@@ -1541,6 +1541,28 @@ thing a contributor can publish. Built: the `articles` table, `public_articles`,
 `soft_delete_article` / `restore_article`, `/dashboard/write`, `/dashboard/write/[id]`, `/a/[id]`,
 `ArticleCard`, and a Type filter on `/library`.
 
+> **`/library`'s three filters are `select` elements, in `LibraryFilters.tsx`.** They were three
+> rows of pills, which is twenty-one controls permanently on screen, and once `other` joined the
+> topics two of those rows wrapped and the filters took more vertical space than the results.
+>
+> They are native selects styled with `appearance-none`, not a custom listbox, so keyboard handling,
+> screen reader semantics and touch behaviour come for free. The open list is drawn by the operating
+> system: its colours are settable on the `option` elements and nothing else is, which is why each
+> `option` carries `bg-paper text-ink` rather than inheriting the closed control's filled-ink
+> treatment and opening a black list on a pale green page.
+>
+> Two things about it are load-bearing rather than incidental:
+>
+> - **Blank controls are disabled during the submit event.** A GET form serialises every named
+>   control it contains, so one filter would otherwise produce `?q=&difficulty=&topic=&type=article`
+>   in a URL section 7 wants people to paste to each other. Both submit paths reach that handler:
+>   the selects through `requestSubmit()`, which fires the submit event where `form.submit()` would
+>   skip it, and the Search button natively.
+> - **Each select is keyed on its value**, so a soft navigation remounts it. The control is
+>   uncontrolled, and React does not push a changed `defaultValue` into an input that is already
+>   mounted, so without the key the DOM value and the URL can drift and the next submit sends the
+>   stale one. Same reasoning as the comment textarea in phase 5.
+
 **It mirrors `videos` rather than inventing a parallel world**, and that is the point rather than
 laziness: difficulty and topic are the site's organising idea, and an article that could not be
 filtered to "level 2, credit" would not be findable in the one way this site expects anything to be
